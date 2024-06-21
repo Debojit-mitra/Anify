@@ -9,19 +9,28 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.adapter.WidgetRemoteViewsFactory;
+import com.bunny.entertainment.factoid.networks.NetworkMonitor;
+import com.bunny.entertainment.factoid.networks.NetworkUtils;
 import com.bunny.entertainment.factoid.service.WidgetRemoteViewsService;
 
 public class RandomFactsWidget extends AppWidgetProvider {
     public static final String ACTION_REFRESH = "com.bunny.entertainment.factoid.widgets.ACTION_REFRESH";
     public static final String ACTION_AUTO_UPDATE = "com.bunny.entertainment.factoid.widgets.ACTION_AUTO_UPDATE";
+    public static final String ACTION_UPDATE_FINISHED = "com.bunny.entertainment.factoid.widgets.ACTION_UPDATE_FINISHED";
+
     public  static final String PREFS_NAME = "com.bunny.entertainment.factoid.WidgetPrefs";
     public  static final String PREF_UPDATE_INTERVAL = "update_interval";
+    private NetworkMonitor networkMonitor;
+
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -34,18 +43,39 @@ public class RandomFactsWidget extends AppWidgetProvider {
     @Override
     public void onReceive(Context context, Intent intent) {
         super.onReceive(context, intent);
-        if (ACTION_REFRESH.equals(intent.getAction()) || ACTION_AUTO_UPDATE.equals(intent.getAction())) {
-            Log.d("RandomFactsWidget", "Refresh action received");
-            WidgetRemoteViewsFactory.setRefreshFlag();
-            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-            ComponentName thisWidget = new ComponentName(context, RandomFactsWidget.class);
-            int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
-            appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view);
-
-            if (ACTION_AUTO_UPDATE.equals(intent.getAction())) {
-                scheduleAutoUpdate(context);
-            }
+        if (networkMonitor == null) {
+            networkMonitor = NetworkMonitor.getInstance(context);
         }
+
+        String action = intent.getAction();
+        if (ACTION_REFRESH.equals(action) || ACTION_AUTO_UPDATE.equals(action)) {
+            Log.d("RandomFactsWidget", "Refresh action received");
+            showProgressBar(context);
+
+            // Delay the actual update to ensure the progress bar is shown
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (NetworkUtils.isNetworkAvailable(context)) {
+                    performUpdate(context);
+                } else {
+                    Log.d("RandomFactsWidget", "No internet connection. Waiting for network.");
+                    hideProgressBar(context);
+                    networkMonitor.startMonitoring(() -> performUpdate(context));
+                }
+            }, 100); // 100ms delay
+        } else if (ACTION_UPDATE_FINISHED.equals(action)) {
+            hideProgressBar(context);
+        }
+    }
+
+    private void performUpdate(Context context) {
+        networkMonitor.stopMonitoring();
+        WidgetRemoteViewsFactory.setRefreshFlag();
+        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+        ComponentName thisWidget = new ComponentName(context, RandomFactsWidget.class);
+        int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view);
+
+        scheduleAutoUpdate(context);
     }
 
     private void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
@@ -110,4 +140,25 @@ public class RandomFactsWidget extends AppWidgetProvider {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putLong(PREF_UPDATE_INTERVAL, intervalMillis).apply();
     }
+
+    private void showProgressBar(Context context) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_facts_widget);
+        views.setViewVisibility(R.id.widget_refresh_button, View.GONE);
+        views.setViewVisibility(R.id.widget_refresh_progress, View.VISIBLE);
+        updateWidgetViews(context, views);
+    }
+
+    private void hideProgressBar(Context context) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_facts_widget);
+        views.setViewVisibility(R.id.widget_refresh_button, View.VISIBLE);
+        views.setViewVisibility(R.id.widget_refresh_progress, View.GONE);
+        updateWidgetViews(context, views);
+    }
+
+    private void updateWidgetViews(Context context, RemoteViews views) {
+        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+        ComponentName thisWidget = new ComponentName(context, RandomFactsWidget.class);
+        appWidgetManager.updateAppWidget(thisWidget, views);
+    }
+
 }
