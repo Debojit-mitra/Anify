@@ -41,23 +41,16 @@ public class WidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsF
     @Override
     public void onDataSetChanged() {
         if (facts.isEmpty() || shouldRefresh) {
-            fetchFactsWithNetworkCheck();
+            if (NetworkUtils.isNetworkAvailable(context)) {
+                fetchFacts();
+            } else {
+                Log.d("WidgetFactory", "No internet connection. Skipping update.");
+            }
             shouldRefresh = false;
         }
     }
 
-    private void fetchFactsWithNetworkCheck() {
-        if (NetworkUtils.isNetworkAvailable(context)) {
-            fetchFacts();
-        } else {
-            Log.d("WidgetFactory", "No internet connection. Waiting for network.");
-            networkMonitor.startMonitoring(this::fetchFacts);
-        }
-    }
-
-
     private void fetchFacts() {
-        networkMonitor.stopMonitoring();
         ApiService apiService = RetrofitClient.getApiService();
         try {
             facts.clear(); // Clear existing facts
@@ -70,13 +63,6 @@ public class WidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsF
             Log.d("WidgetFactory", "Total facts fetched: " + facts.size());
         } catch (Exception e) {
             Log.e("WidgetFactory", "Error fetching facts", e);
-        } finally {
-            // Notify that update is finished
-            new Handler(Looper.getMainLooper()).post(() -> {
-                Intent finishedIntent = new Intent(context, RandomFactsWidget.class);
-                finishedIntent.setAction(RandomFactsWidget.ACTION_UPDATE_FINISHED);
-                context.sendBroadcast(finishedIntent);
-            });
         }
     }
 

@@ -16,6 +16,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
+import com.bunny.entertainment.factoid.MainActivity;
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.adapter.WidgetRemoteViewsFactory;
 import com.bunny.entertainment.factoid.networks.NetworkMonitor;
@@ -30,6 +31,7 @@ public class RandomFactsWidget extends AppWidgetProvider {
     public  static final String PREFS_NAME = "com.bunny.entertainment.factoid.WidgetPrefs";
     public  static final String PREF_UPDATE_INTERVAL = "update_interval";
     private NetworkMonitor networkMonitor;
+    private long lastUpdateTime = 0;
 
 
     @Override
@@ -50,25 +52,30 @@ public class RandomFactsWidget extends AppWidgetProvider {
         String action = intent.getAction();
         if (ACTION_REFRESH.equals(action) || ACTION_AUTO_UPDATE.equals(action)) {
             Log.d("RandomFactsWidget", "Refresh action received");
-            showProgressBar(context);
-
-            // Delay the actual update to ensure the progress bar is shown
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            long currentTime = System.currentTimeMillis();
+            long updateInterval = getUpdateIntervalMillis(context);
+            if (currentTime - lastUpdateTime >= updateInterval) {
                 if (NetworkUtils.isNetworkAvailable(context)) {
+                    showProgressBar(context);
                     performUpdate(context);
                 } else {
                     Log.d("RandomFactsWidget", "No internet connection. Waiting for network.");
-                    hideProgressBar(context);
-                    networkMonitor.startMonitoring(() -> performUpdate(context));
+                    networkMonitor.startMonitoring(() -> {
+                        showProgressBar(context);
+                        performUpdate(context);
+                    });
                 }
-            }, 100); // 100ms delay
+            } else {
+                Log.d("RandomFactsWidget", "Update skipped: too soon after last update");
+            }
         } else if (ACTION_UPDATE_FINISHED.equals(action)) {
             hideProgressBar(context);
+            lastUpdateTime = System.currentTimeMillis();
+            networkMonitor.stopMonitoring(); // Ensure we stop monitoring after update
         }
     }
 
     private void performUpdate(Context context) {
-        networkMonitor.stopMonitoring();
         WidgetRemoteViewsFactory.setRefreshFlag();
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
         ComponentName thisWidget = new ComponentName(context, RandomFactsWidget.class);
@@ -76,6 +83,11 @@ public class RandomFactsWidget extends AppWidgetProvider {
         appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view);
 
         scheduleAutoUpdate(context);
+
+        // Notify that update is finished
+        Intent finishedIntent = new Intent(context, RandomFactsWidget.class);
+        finishedIntent.setAction(ACTION_UPDATE_FINISHED);
+        context.sendBroadcast(finishedIntent);
     }
 
     private void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {

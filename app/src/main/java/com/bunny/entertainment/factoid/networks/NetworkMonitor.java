@@ -12,7 +12,7 @@ public class NetworkMonitor {
     private static NetworkMonitor instance;
     private final ConnectivityManager connectivityManager;
     private final Handler mainHandler;
-    private NetworkCallback callback;
+    private ConnectivityManager.NetworkCallback callback;
     private boolean isMonitoring = false;
 
 
@@ -29,14 +29,23 @@ public class NetworkMonitor {
     }
 
     public void startMonitoring(Runnable onNetworkAvailable) {
+        stopMonitoring(); // Remove any existing callback
+
         NetworkRequest networkRequest = new NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 .build();
 
-        callback = new NetworkCallback(onNetworkAvailable);
+        callback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                mainHandler.post(() -> {
+                    onNetworkAvailable.run();
+                    stopMonitoring(); // Remove callback after network becomes available
+                });
+            }
+        };
 
         connectivityManager.registerNetworkCallback(networkRequest, callback);
-        isMonitoring = true;
     }
 
     public void stopMonitoring() {
