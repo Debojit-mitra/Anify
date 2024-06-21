@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Factoid</string>
+    <string name="appwidget_text">Random Facts</string>
+    <string name="add_widget">Add widget</string>
+    <string name="app_widget_description">Get random true but useless facts</string>
+    <string name="update_fact">Update Fact</string>
+    <string name="unable_to_fetch_facts">Unable to fetch facts!</string>
+    <string name="update_interval_24_hour">Update interval: 24 hour</string>
+</resources>
