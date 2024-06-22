@@ -7,4 +7,5 @@
     <string name="unable_to_fetch_facts">Unable to fetch facts!</string>
     <string name="update_interval_24_hour">Update interval: 24 hour</string>
     <string name="allow_permission">Allow Permission</string>
+    <string name="zero_percent">0%</string>
 </resources>
