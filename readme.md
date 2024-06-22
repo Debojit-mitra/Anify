@@ -17,7 +17,7 @@ Factoid is an Android app that provides users with interesting random facts thro
 
 ## Release
 
-- v1.0.1 - [Download](https://github.com/Debojit-mitra/Factify/releases/tag/1.0.1)
+![Latest Release](https://img.shields.io/github/v/release/Debojit-mitra/Factoid?social)
 
 ## Technologies Used
 

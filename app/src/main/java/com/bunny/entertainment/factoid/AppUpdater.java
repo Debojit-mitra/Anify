@@ -99,7 +99,7 @@ public class AppUpdater {
     private void showUpdateReadyDialog(String newVersion) {
         new MaterialAlertDialogBuilder(context)
                 .setTitle("Update Ready")
-                .setMessage("A new version (" + newVersion + ") is ready to install. Do you want to install it now?")
+                .setMessage("A new version (" + newVersion + ") is ready to install. Do you want to install it now?\nIf App Scan shows up click -> More Details -> continue without scanning")
                 .setPositiveButton("Install", (dialog, which) -> installExistingUpdate())
                 .setNegativeButton("Later", null)
                 .show();
