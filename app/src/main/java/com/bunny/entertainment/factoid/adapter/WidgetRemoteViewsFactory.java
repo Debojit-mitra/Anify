@@ -1,9 +1,6 @@
 package com.bunny.entertainment.factoid.adapter;
 
 import android.content.Context;
-import android.content.Intent;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
@@ -11,10 +8,8 @@ import android.widget.RemoteViewsService;
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.models.FactResponse;
 import com.bunny.entertainment.factoid.networks.ApiService;
-import com.bunny.entertainment.factoid.networks.NetworkMonitor;
 import com.bunny.entertainment.factoid.networks.NetworkUtils;
 import com.bunny.entertainment.factoid.networks.RetrofitClient;
-import com.bunny.entertainment.factoid.widgets.RandomFactsWidget;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,16 +17,14 @@ import java.util.List;
 import retrofit2.Response;
 
 public class WidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory {
-    private Context context;
-    private List<String> facts;
+    private final Context context;
+    private final List<String> facts;
     private static boolean shouldRefresh = false;
-    private NetworkMonitor networkMonitor;
 
 
-    public WidgetRemoteViewsFactory(Context context, Intent intent) {
+    public WidgetRemoteViewsFactory(Context context) {
         this.context = context;
         this.facts = new ArrayList<>();
-        this.networkMonitor = NetworkMonitor.getInstance(context);
     }
 
     @Override

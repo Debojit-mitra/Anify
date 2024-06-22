@@ -19,4 +19,16 @@
         android:layout_height="wrap_content"
         android:max="24"/>
 
+    <TextView
+        android:id="@+id/allowTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/allow_permission"
+        android:textColor="@color/light_blue_900"
+        android:textStyle="bold"
+        android:textSize="15sp"
+        android:visibility="gone"
+        android:layout_marginTop="16dp" />
+
+
 </LinearLayout>

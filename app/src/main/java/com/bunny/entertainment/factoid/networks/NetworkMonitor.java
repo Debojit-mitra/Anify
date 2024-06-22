@@ -8,12 +8,13 @@ import android.net.NetworkRequest;
 import android.os.Handler;
 import android.os.Looper;
 
+import androidx.annotation.NonNull;
+
 public class NetworkMonitor {
     private static NetworkMonitor instance;
     private final ConnectivityManager connectivityManager;
     private final Handler mainHandler;
     private ConnectivityManager.NetworkCallback callback;
-    private boolean isMonitoring = false;
 
 
     private NetworkMonitor(Context context) {
@@ -37,7 +38,7 @@ public class NetworkMonitor {
 
         callback = new ConnectivityManager.NetworkCallback() {
             @Override
-            public void onAvailable(Network network) {
+            public void onAvailable(@NonNull Network network) {
                 mainHandler.post(() -> {
                     onNetworkAvailable.run();
                     stopMonitoring(); // Remove callback after network becomes available
@@ -52,23 +53,6 @@ public class NetworkMonitor {
         if (callback != null) {
             connectivityManager.unregisterNetworkCallback(callback);
             callback = null;
-        }
-    }
-
-    public boolean isMonitoring() {
-        return isMonitoring;
-    }
-
-    private class NetworkCallback extends ConnectivityManager.NetworkCallback {
-        private final Runnable onNetworkAvailable;
-
-        NetworkCallback(Runnable onNetworkAvailable) {
-            this.onNetworkAvailable = onNetworkAvailable;
-        }
-
-        @Override
-        public void onAvailable(Network network) {
-            mainHandler.post(onNetworkAvailable);
         }
     }
 }

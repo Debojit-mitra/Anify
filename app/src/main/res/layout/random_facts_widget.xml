@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -41,12 +40,14 @@
 
         <ImageView
             android:id="@+id/widget_refresh_button"
-            android:layout_width="13dp"
-            android:layout_height="13dp"
+            android:layout_width="15dp"
+            android:layout_height="15dp"
             android:src="@drawable/ic_reload"
             android:background="@android:color/transparent"
             android:contentDescription="@string/update_fact"
             android:tint="@color/mode_inverse_extra"
+            android:padding="2dp"
+            android:hapticFeedbackEnabled="true"
             tools:ignore="UseAppTint" />
 
         <ProgressBar

@@ -8,6 +8,6 @@ import com.bunny.entertainment.factoid.adapter.WidgetRemoteViewsFactory;
 public class WidgetRemoteViewsService extends RemoteViewsService {
     @Override
     public RemoteViewsFactory onGetViewFactory(Intent intent) {
-        return new WidgetRemoteViewsFactory(this.getApplicationContext(), intent);
+        return new WidgetRemoteViewsFactory(this.getApplicationContext());
     }
 }

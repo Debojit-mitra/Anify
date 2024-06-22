@@ -16,7 +16,6 @@ import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
-import com.bunny.entertainment.factoid.MainActivity;
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.adapter.WidgetRemoteViewsFactory;
 import com.bunny.entertainment.factoid.networks.NetworkMonitor;
@@ -57,7 +56,7 @@ public class RandomFactsWidget extends AppWidgetProvider {
             if (currentTime - lastUpdateTime >= updateInterval) {
                 if (NetworkUtils.isNetworkAvailable(context)) {
                     showProgressBar(context);
-                    performUpdate(context);
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> performUpdate(context), 250); //setting delay of 250ms for showing progress bar
                 } else {
                     Log.d("RandomFactsWidget", "No internet connection. Waiting for network.");
                     networkMonitor.startMonitoring(() -> {
@@ -106,12 +105,17 @@ public class RandomFactsWidget extends AppWidgetProvider {
     }
 
     private void scheduleAutoUpdate(Context context) {
+        long intervalMillis = getUpdateIntervalMillis(context);
+        if (intervalMillis == 0) {
+            // Auto-update is disabled, so don't schedule anything
+            return;
+        }
+
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(context, RandomFactsWidget.class);
         intent.setAction(ACTION_AUTO_UPDATE);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        long intervalMillis = getUpdateIntervalMillis(context);
         long triggerAtMillis = System.currentTimeMillis() + intervalMillis;
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
