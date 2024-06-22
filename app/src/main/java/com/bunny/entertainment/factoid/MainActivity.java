@@ -1,7 +1,9 @@
 package com.bunny.entertainment.factoid;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Bundle;
@@ -24,6 +26,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView intervalTextView;
     public TextView allowTextView;
     private static final int REQUEST_SCHEDULE_EXACT_ALARM = 1001;
+    public static final int REQUEST_INSTALL_PACKAGES = 1002;
     private static final long[] INTERVALS = {
             5 * 60 * 1000L,    // 5 minutes
             10 * 60 * 1000L,   // 10 minutes
@@ -41,14 +44,18 @@ public class MainActivity extends AppCompatActivity {
     };
     private static final int SEEKBAR_STEPS = INTERVALS.length;
     private ActivityResultLauncher<Intent> alarmPermissionLauncher;
+    private AppUpdater appUpdater;
+    public AppUpdater.UpdateReceiver updateReceiver;
 
-
-
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        // Initialize AppUpdater
+        appUpdater = new AppUpdater(this);
 
         intervalSeekBar = findViewById(R.id.intervalSeekBar);
         intervalTextView = findViewById(R.id.intervalTextView);
@@ -69,7 +76,6 @@ public class MainActivity extends AppCompatActivity {
                 result -> checkAlarmPermission()
         );
 
-
         intervalSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -88,6 +94,31 @@ public class MainActivity extends AppCompatActivity {
                 scheduleNextUpdate();
             }
         });
+
+        updateReceiver = new AppUpdater.UpdateReceiver();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(updateReceiver, new IntentFilter(AppUpdater.INSTALL_ACTION), RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(updateReceiver, new IntentFilter(AppUpdater.INSTALL_ACTION));
+        }
+
+
+        appUpdater.checkForUpdates(false);
+
+
+        handleUpdateNotificationClick();
+    }
+
+    private boolean hasInstallPermission() {
+        return getPackageManager().canRequestPackageInstalls();
+    }
+
+    private void handleUpdateNotificationClick() {
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra("downloadUrl")) {
+            String downloadUrl = intent.getStringExtra("downloadUrl");
+            appUpdater.downloadAndInstallUpdate(downloadUrl);
+        }
     }
 
     private boolean isFirstTime() {
@@ -206,11 +237,25 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Exact alarms not allowed, widget may update less precisely", Toast.LENGTH_LONG).show();
             }
+        } else if (requestCode == REQUEST_INSTALL_PACKAGES) {
+            if (hasInstallPermission()) {
+                Toast.makeText(this, "Permission to install packages granted", Toast.LENGTH_SHORT).show();
+                appUpdater.checkAndDownloadPendingUpdate();
+            } else {
+                Toast.makeText(this, "Permission to install packages is required for updates", Toast.LENGTH_LONG).show();
+            }
         }
     }
+
     @Override
     protected void onResume() {
         super.onResume();
         checkAlarmPermission();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(updateReceiver);
     }
 }
