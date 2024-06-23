@@ -65,7 +65,6 @@ public class MainActivity extends AppCompatActivity {
             10 * 60 * 60 * 1000L,  // 10 hours
             12 * 60 * 60 * 1000L   // 12 hours
     };
-    private static final int SEEKBAR_STEPS = INTERVALS.length;
     private ActivityResultLauncher<Intent> alarmPermissionLauncher;
     private AppUpdater appUpdater;
     public AppUpdater.UpdateReceiver updateReceiver;
@@ -528,7 +527,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
             return packageInfo.versionName;
-        } catch (PackageManager.NameNotFoundException e) {;
+        } catch (PackageManager.NameNotFoundException e) {
             return DOESNT_EXIST; // In case of an error, return a non-existent version code
         }
     }
