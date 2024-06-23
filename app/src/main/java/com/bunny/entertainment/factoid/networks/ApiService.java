@@ -5,6 +5,7 @@ import com.bunny.entertainment.factoid.models.AnimeFactResponse;
 import com.bunny.entertainment.factoid.models.AnimeImageResponse;
 import com.bunny.entertainment.factoid.models.FactResponse;
 import com.bunny.entertainment.factoid.models.NekoBotImageResponse;
+import com.bunny.entertainment.factoid.models.WaifuImResponse;
 
 import retrofit2.Call;
 import retrofit2.http.GET;
@@ -23,4 +24,7 @@ public interface ApiService {
 
     @GET("api/image")
     Call<NekoBotImageResponse> getNekoBotImage(@Query("type") String type);
+
+    @GET("search")
+    Call<WaifuImResponse> getWaifuImImage(@Query("included_tags") String tag, @Query("byte_size") String byteSize);
 }

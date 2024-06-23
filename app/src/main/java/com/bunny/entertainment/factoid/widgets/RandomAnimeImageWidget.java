@@ -23,10 +23,10 @@ import androidx.annotation.NonNull;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bunny.entertainment.factoid.BuildConfig;
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.models.AnimeImageResponse;
 import com.bunny.entertainment.factoid.models.NekoBotImageResponse;
+import com.bunny.entertainment.factoid.models.WaifuImResponse;
 import com.bunny.entertainment.factoid.networks.ApiService;
 import com.bunny.entertainment.factoid.networks.NetworkMonitor;
 import com.bunny.entertainment.factoid.networks.NetworkUtils;
@@ -45,14 +45,15 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     public static final String PREF_UPDATE_INTERVAL = "anime_image_update_interval";
     public static final String PREF_IMAGE_CATEGORY = "anime_image_category";
     public static final String PREF_API_SOURCE = "anime_image_api_source";
-    private static final String PREF_VERSION_CODE_KEY = "version_code";
     public static final String API_WAIFU_PICS = "waifu_pics";
     public static final String API_NEKOBOT = "nekobot";
+    public static final String API_WAIFU_IM = "waifu_im";
     public static final String ACTION_DOWNLOAD = "com.bunny.entertainment.factoid.widgets.ANIME_IMAGE_ACTION_DOWNLOAD";
     public static final String ACTION_DOWNLOAD_COMPLETE = "com.bunny.entertainment.factoid.widgets.ACTION_DOWNLOAD_COMPLETE";
     public static final String ACTION_DOWNLOAD_FAILED = "com.bunny.entertainment.factoid.widgets.ACTION_DOWNLOAD_FAILED";
     private NetworkMonitor networkMonitor;
     private long lastUpdateTime = 0;
+    String byteSizeConstraintForWaifuIm = "<=3145728";
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -140,6 +141,8 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
             fetchWaifuPicsImage(context, appWidgetManager, appWidgetIds, category);
         } else if (API_NEKOBOT.equals(apiSource)) {
             fetchNekoBotImage(context, appWidgetManager, appWidgetIds, category);
+        } else if (API_WAIFU_IM.equals(apiSource)) {
+            fetchWaifuImImage(context, appWidgetManager, appWidgetIds, category);
         }
     }
 
@@ -159,6 +162,28 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
             @Override
             public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
+                Log.e("RandomAnimeImageWidget", "Failed to fetch image", t);
+                sendUpdateFinishedBroadcast(context);
+            }
+        });
+    }
+
+    private void fetchWaifuImImage(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds, String category) {
+        ApiService apiService = RetrofitClient.getApiServiceWaifuIm();
+        apiService.getWaifuImImage(category, byteSizeConstraintForWaifuIm).enqueue(new Callback<WaifuImResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<WaifuImResponse> call, @NonNull Response<WaifuImResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    String imageUrl = response.body().getImageUrl();
+                    for (int appWidgetId : appWidgetIds) {
+                        updateWidgetWithImage(context, appWidgetManager, appWidgetId, imageUrl);
+                    }
+                }
+                sendUpdateFinishedBroadcast(context);
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<WaifuImResponse> call, @NonNull Throwable t) {
                 Log.e("RandomAnimeImageWidget", "Failed to fetch image", t);
                 sendUpdateFinishedBroadcast(context);
             }
@@ -260,10 +285,14 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
         });
     }
 
-    private void updateWidgetWithImage(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String imageUrl) {
+    private void loadImageWithRetry(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String imageUrl, int retryCount) {
+        if (retryCount > 3) {
+            Log.e("RandomAnimeImageWidget", "Failed to load image after 3 attempts");
+            return;
+        }
+
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_anime_image_widget);
 
-        // Load image in background thread
         new Thread(() -> {
             try {
                 Bitmap bitmap = Glide.with(context.getApplicationContext())
@@ -274,33 +303,102 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
                         .submit()
                         .get();
 
-                // Convert to WebP
-                // Bitmap webpBitmap = convertToWebP(bitmap);
-
-                // Update widget on main thread
                 new Handler(Looper.getMainLooper()).post(() -> {
                     views.setImageViewBitmap(R.id.widget_image_view, bitmap);
-
-                    // Set up refresh button
-                    Intent refreshIntent = new Intent(context, RandomAnimeImageWidget.class);
-                    refreshIntent.setAction(ACTION_REFRESH);
-                    PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, 0, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-                    views.setOnClickPendingIntent(R.id.widget_refresh_button, refreshPendingIntent);
-
-                    // Set up download button
-                    Intent downloadIntent = new Intent(context, RandomAnimeImageWidget.class);
-                    downloadIntent.setAction(ACTION_DOWNLOAD);
-                    downloadIntent.putExtra("image_url", imageUrl);
-                    PendingIntent downloadPendingIntent = PendingIntent.getBroadcast(context, 1, downloadIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-                    views.setOnClickPendingIntent(R.id.widget_download_button, downloadPendingIntent);
-
-
+                    setupWidgetButtons(context, views, appWidgetId, imageUrl);
                     appWidgetManager.updateAppWidget(appWidgetId, views);
                 });
             } catch (Exception e) {
                 Log.e("RandomAnimeImageWidget", "Error loading image", e);
+                // Fetch a new image URL and retry
+                fetchNewImageAndRetry(context, appWidgetManager, appWidgetId, retryCount + 1);
             }
         }).start();
+    }
+
+    private void setupWidgetButtons(Context context, RemoteViews views, int appWidgetId, String imageUrl) {
+        // Set up refresh button
+        Intent refreshIntent = new Intent(context, RandomAnimeImageWidget.class);
+        refreshIntent.setAction(ACTION_REFRESH);
+        PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, 0, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        views.setOnClickPendingIntent(R.id.widget_refresh_button, refreshPendingIntent);
+
+        // Set up download button
+        Intent downloadIntent = new Intent(context, RandomAnimeImageWidget.class);
+        downloadIntent.setAction(ACTION_DOWNLOAD);
+        downloadIntent.putExtra("image_url", imageUrl);
+        PendingIntent downloadPendingIntent = PendingIntent.getBroadcast(context, 1, downloadIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        views.setOnClickPendingIntent(R.id.widget_download_button, downloadPendingIntent);
+    }
+
+    private void fetchNewImageAndRetry(Context context, AppWidgetManager appWidgetManager, int appWidgetId, int retryCount) {
+        String category = getImageCategory(context);
+        String apiSource = getApiSource(context);
+
+        ApiService apiService;
+        if (API_WAIFU_PICS.equals(apiSource)) {
+            apiService = RetrofitClient.getApiServiceAnimeImages();
+            apiService.getAnimeImage(category).enqueue(new Callback<AnimeImageResponse>() {
+                @Override
+                public void onResponse(@NonNull Call<AnimeImageResponse> call, @NonNull Response<AnimeImageResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        String newImageUrl = response.body().getUrl();
+                        loadImageWithRetry(context, appWidgetManager, appWidgetId, newImageUrl, retryCount);
+                    } else {
+                        Log.e("RandomAnimeImageWidget", "Failed to fetch new image URL");
+                    }
+                }
+
+                @Override
+                public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
+                    Log.e("RandomAnimeImageWidget", "Error fetching new image URL", t);
+                }
+            });
+        } else if (API_NEKOBOT.equals(apiSource)) {
+            apiService = RetrofitClient.getApiServiceNekoBot();
+            apiService.getNekoBotImage(category).enqueue(new Callback<NekoBotImageResponse>() {
+                @Override
+                public void onResponse(@NonNull Call<NekoBotImageResponse> call, @NonNull Response<NekoBotImageResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        String newImageUrl = response.body().getMessage();
+                        loadImageWithRetry(context, appWidgetManager, appWidgetId, newImageUrl, retryCount);
+                    } else {
+                        Log.e("RandomAnimeImageWidget", "Failed to fetch new image URL");
+                    }
+                    sendUpdateFinishedBroadcast(context);
+                }
+
+                @Override
+                public void onFailure(@NonNull Call<NekoBotImageResponse> call, @NonNull Throwable t) {
+                    Log.e("RandomAnimeImageWidget", "Failed to fetch image", t);
+                    sendUpdateFinishedBroadcast(context);
+                }
+            });
+        } else if (API_WAIFU_IM.equals(apiSource)) {
+            apiService = RetrofitClient.getApiServiceWaifuIm();
+            apiService.getWaifuImImage(category, byteSizeConstraintForWaifuIm).enqueue(new Callback<WaifuImResponse>() {
+                @Override
+                public void onResponse(@NonNull Call<WaifuImResponse> call, @NonNull Response<WaifuImResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        String newImageUrl = response.body().getImageUrl();
+                        loadImageWithRetry(context, appWidgetManager, appWidgetId, newImageUrl, retryCount);
+                    } else {
+                        Log.e("RandomAnimeImageWidget", "Failed to fetch new image URL");
+                    }
+                    sendUpdateFinishedBroadcast(context);
+                }
+
+                @Override
+                public void onFailure(@NonNull Call<WaifuImResponse> call, @NonNull Throwable t) {
+                    Log.e("RandomAnimeImageWidget", "Failed to fetch image", t);
+                    sendUpdateFinishedBroadcast(context);
+                }
+            });
+        }
+    }
+
+    private void updateWidgetWithImage(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String imageUrl) {
+        loadImageWithRetry(context, appWidgetManager, appWidgetId, imageUrl, 0);
     }
 
     private void scheduleAutoUpdate(Context context) {
@@ -348,11 +446,6 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     private String getImageCategory(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString(PREF_IMAGE_CATEGORY, "waifu"); // Default to "waifu"
-    }
-
-    public static void setAppLastVersion(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(PREF_VERSION_CODE_KEY, BuildConfig.VERSION_NAME).apply();
     }
 
     private void downloadImage(Context context, String imageUrl) {

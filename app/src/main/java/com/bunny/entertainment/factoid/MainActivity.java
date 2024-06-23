@@ -48,6 +48,9 @@ public class MainActivity extends AppCompatActivity {
     public static final String PREFS_NAME = "com.bunny.entertainment.factoid.AnimeImageWidgetPrefs";
     private static final String PREF_VERSION_CODE_KEY = "version_code";
     private static final String DOESNT_EXIST = null;
+    private Spinner apiSourceSpinner, categorySpinner;
+    private String currentApiSource, currentCategory, lastWaifuPicsCategory, lastNekoBotCategory, lastWaifuImCategory;
+
 
     private static final long[] INTERVALS = {
             0L,                 // Off
@@ -68,8 +71,7 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> alarmPermissionLauncher;
     private AppUpdater appUpdater;
     public AppUpdater.UpdateReceiver updateReceiver;
-    private Spinner categorySpinner, apiSourceSpinner;
-    private static final String[] API_SOURCES = {"Waifu.pics", "NekoBot"};
+    private static final String[] API_SOURCES = {"Waifu.pics", "NekoBot", "waifu.im"};
 
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -97,11 +99,11 @@ public class MainActivity extends AppCompatActivity {
         apiSourceSpinner = findViewById(R.id.api_source_spinner);
 
         setupApiSourceSpinner();
-        setupCategorySpinner();
+
 
         setupSeekBar();
 
-        if (isFirstTime()) {
+        if (isFirstTime() || getAppLastVersion(MainActivity.this) == null && !getCurrentVersionName(MainActivity.this).equals(getAppLastVersion(MainActivity.this))) {
             showNotificationPermissionDialog();
             if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
                 showPermissionRequiredDialog();
@@ -110,11 +112,11 @@ public class MainActivity extends AppCompatActivity {
             checkAlarmPermission();
         }
 
-        //// this is temporary
-        if (getAppLastVersion(MainActivity.this) == null || !getCurrentVersionName(MainActivity.this).equals(getAppLastVersion(MainActivity.this))) {
+       /* //// this is temporary
+        if () {
             showNotificationPermissionDialog();
             RandomAnimeImageWidget.setAppLastVersion(MainActivity.this);
-        }
+        }*/
 
         allowTextView.setOnClickListener(v -> showPermissionRequiredDialog());
 
@@ -259,12 +261,12 @@ public class MainActivity extends AppCompatActivity {
 
     private long getUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[1]); // Default to off
+        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1hr
     }
 
     private long getAnimeUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomAnimeFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[1]); // Default to off
+        return prefs.getLong(RandomAnimeFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1hr
     }
 
     private int millisToProgress(long millis) {
@@ -429,60 +431,119 @@ public class MainActivity extends AppCompatActivity {
     private void setupApiSourceSpinner() {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, API_SOURCES);
         apiSourceSpinner.setAdapter(adapter);
-
-        String currentApiSource = getApiSource();
-        int index = currentApiSource.equals(RandomAnimeImageWidget.API_NEKOBOT) ? 1 : 0;
+        int index;
+        currentApiSource = getApiSource();
+        switch (currentApiSource) {
+            case RandomAnimeImageWidget.API_NEKOBOT:
+                index = 1;
+                break;
+            case RandomAnimeImageWidget.API_WAIFU_IM:
+                index = 2;
+                break;
+            case RandomAnimeImageWidget.API_WAIFU_PICS:
+            default:
+                index = 0;
+                break;
+        }
         apiSourceSpinner.setSelection(index);
+
+        // Initialize last selected categories
+        lastWaifuPicsCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS);
+        lastNekoBotCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT);
+        lastWaifuImCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM);
 
         apiSourceSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String newApiSource = position == 1 ? RandomAnimeImageWidget.API_NEKOBOT : RandomAnimeImageWidget.API_WAIFU_PICS;
-                RandomAnimeImageWidget.setApiSource(MainActivity.this, newApiSource);
-                setupCategorySpinner(); // Update category options
+                if (position == 0) {
+                    newApiSource = RandomAnimeImageWidget.API_WAIFU_PICS;
+                } else if (position == 1) {
+                    newApiSource = RandomAnimeImageWidget.API_NEKOBOT;
+                } else if (position == 2) {
+                    newApiSource = RandomAnimeImageWidget.API_WAIFU_IM;
+                }
+                if (!newApiSource.equals(currentApiSource)) {
+                    // Save the current category for the previous API source
+                    switch (currentApiSource) {
+                        case RandomAnimeImageWidget.API_NEKOBOT:
+                            lastNekoBotCategory = currentCategory;
+                            break;
+                        case RandomAnimeImageWidget.API_WAIFU_IM:
+                            lastWaifuImCategory = currentCategory;
+                            break;
+                        case RandomAnimeImageWidget.API_WAIFU_PICS:
+                        default:
+                            lastWaifuPicsCategory = currentCategory;
+                            break;
+                    }
+
+                    currentApiSource = newApiSource;
+                    RandomAnimeImageWidget.setApiSource(MainActivity.this, newApiSource);
+                    setupCategorySpinner();
+                    scheduleNextImageUpdate();
+                }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
             }
         });
+        setupCategorySpinner();
     }
 
     private void setupCategorySpinner() {
         String[] categories;
-        String currentApiSource = getApiSource();
         if (RandomAnimeImageWidget.API_NEKOBOT.equals(currentApiSource)) {
             categories = new String[]{"neko", "kemonomimi", "kanna", "coffee", "food"};
+            currentCategory = lastNekoBotCategory;
+        } else if (RandomAnimeImageWidget.API_WAIFU_IM.equals(currentApiSource)) {
+            categories = new String[]{"waifu", "maid", "marin-kitagawa", "mori-calliope", "raiden-shogun", "oppai", "selfies", "uniform", "kamisato-ayaka"};
+            currentCategory = lastWaifuImCategory;
         } else {
             categories = new String[]{"waifu", "neko", "shinobu", "megumin", "awoo", "nom", "happy", "wink", "cringe"};
+            currentCategory = lastWaifuPicsCategory;
         }
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, categories);
         categorySpinner.setAdapter(adapter);
 
+        int index = Arrays.asList(categories).indexOf(currentCategory);
+        if (index == -1) {
+            index = 0;
+            currentCategory = categories[0];
+        }
+        categorySpinner.setSelection(index);
+
+        RandomAnimeImageWidget.setImageCategory(this, currentCategory);
+
         categorySpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedCategory = categories[position];
-                RandomAnimeImageWidget.setImageCategory(MainActivity.this, selectedCategory);
-                scheduleNextImageUpdate();
+                if (!selectedCategory.equals(currentCategory)) {
+                    currentCategory = selectedCategory;
+                    switch (currentApiSource) {
+                        case RandomAnimeImageWidget.API_NEKOBOT:
+                            lastNekoBotCategory = currentCategory;
+                            break;
+                        case RandomAnimeImageWidget.API_WAIFU_IM:
+                            lastWaifuImCategory = currentCategory;
+                            break;
+                        case RandomAnimeImageWidget.API_WAIFU_PICS:
+                        default:
+                            lastWaifuPicsCategory = currentCategory;
+                            break;
+                    }
+                    RandomAnimeImageWidget.setImageCategory(MainActivity.this, selectedCategory);
+                    scheduleNextImageUpdate();
+                }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
             }
         });
-
-        // Set initial selection
-        String currentCategory = getImageCategory();
-        int index = Arrays.asList(categories).indexOf(currentCategory);
-        if (index != -1) {
-            categorySpinner.setSelection(index);
-        } else {
-            // If the current category is not in the new list, select the first category
-            categorySpinner.setSelection(0);
-            RandomAnimeImageWidget.setImageCategory(this, categories[0]);
-        }
     }
 
     private String getApiSource() {
@@ -492,12 +553,7 @@ public class MainActivity extends AppCompatActivity {
 
     private long getImageUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomAnimeImageWidget.PREF_UPDATE_INTERVAL, INTERVALS[4]); // Default to 1 hour
-    }
-
-    private String getImageCategory() {
-        SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getString(RandomAnimeImageWidget.PREF_IMAGE_CATEGORY, "waifu");
+        return prefs.getLong(RandomAnimeImageWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1 hour
     }
 
     private void scheduleNextImageUpdate() {
@@ -532,6 +588,32 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private String getLastSelectedCategory(String apiSource) {
+        SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
+        String key = apiSource + "_last_category";
+        String defaultCategory;
+
+        switch (apiSource) {
+            case RandomAnimeImageWidget.API_WAIFU_PICS:
+                defaultCategory = "waifu";
+                break;
+            case RandomAnimeImageWidget.API_NEKOBOT:
+                defaultCategory = "neko";
+                break;
+            case RandomAnimeImageWidget.API_WAIFU_IM:
+            default:
+                defaultCategory = "waifu";
+        }
+
+        return prefs.getString(key, defaultCategory);
+    }
+
+    private void saveLastSelectedCategory(String apiSource, String category) {
+        SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
+        String key = apiSource + "_last_category";
+        prefs.edit().putString(key, category).apply();
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -540,7 +622,18 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS, lastWaifuPicsCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT, lastNekoBotCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM, lastWaifuImCategory);
         super.onDestroy();
         unregisterReceiver(updateReceiver);
+    }
+
+    @Override
+    protected void onStop() {
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS, lastWaifuPicsCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT, lastNekoBotCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM, lastWaifuImCategory);
+        super.onStop();
     }
 }

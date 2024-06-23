@@ -12,6 +12,8 @@ public class RetrofitClient {
     private static Retrofit animeRetrofit = null;
     private static Retrofit animeImageRetrofit = null;
     private static Retrofit nekoBotRetrofit = null;
+    private static Retrofit waifuImRetrofit = null;
+
 
     public static ApiService getApiService() {
         if (retrofit == null) {
@@ -62,5 +64,15 @@ public class RetrofitClient {
                     .build();
         }
         return nekoBotRetrofit.create(ApiService.class);
+    }
+
+    public static ApiService getApiServiceWaifuIm() {
+        if (waifuImRetrofit == null) {
+            waifuImRetrofit = new Retrofit.Builder()
+                    .baseUrl("https://api.waifu.im/")
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build();
+        }
+        return waifuImRetrofit.create(ApiService.class);
     }
 }
