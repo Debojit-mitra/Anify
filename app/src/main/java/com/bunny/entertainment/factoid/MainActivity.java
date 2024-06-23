@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -44,8 +45,12 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_SCHEDULE_EXACT_ALARM = 1001;
     public static final int REQUEST_INSTALL_PACKAGES = 1002;
     private static final int REQUEST_NOTIFICATION_PERMISSION = 1003;
+    public static final String PREFS_NAME = "com.bunny.entertainment.factoid.AnimeImageWidgetPrefs";
+    private static final String PREF_VERSION_CODE_KEY = "version_code";
+    private static final String DOESNT_EXIST = null;
 
     private static final long[] INTERVALS = {
+            0L,                 // Off
             5 * 60 * 1000L,    // 5 minutes
             10 * 60 * 1000L,   // 10 minutes
             20 * 60 * 1000L,   // 20 minutes
@@ -99,9 +104,17 @@ public class MainActivity extends AppCompatActivity {
 
         if (isFirstTime()) {
             showNotificationPermissionDialog();
-            showPermissionRequiredDialog();
+            if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
+                showPermissionRequiredDialog();
+            }
         } else {
             checkAlarmPermission();
+        }
+
+        //// this is temporary
+        if (getAppLastVersion(MainActivity.this) == null || !getCurrentVersionName(MainActivity.this).equals(getAppLastVersion(MainActivity.this))) {
+            showNotificationPermissionDialog();
+            RandomAnimeImageWidget.setAppLastVersion(MainActivity.this);
         }
 
         allowTextView.setOnClickListener(v -> showPermissionRequiredDialog());
@@ -124,9 +137,12 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
+
                 long intervalMillis = INTERVALS[seekBar.getProgress()];
                 RandomFactsWidget.setUpdateInterval(MainActivity.this, intervalMillis);
-                scheduleNextUpdate();
+                if (intervalMillis > 0) {
+                    scheduleNextUpdate();
+                }
             }
         });
 
@@ -145,7 +161,30 @@ public class MainActivity extends AppCompatActivity {
             public void onStopTrackingTouch(SeekBar seekBar) {
                 long intervalMillis = INTERVALS[seekBar.getProgress()];
                 RandomAnimeFactsWidget.setUpdateInterval(MainActivity.this, intervalMillis);
-                scheduleNextAnimeUpdate();
+                if (intervalMillis > 0) {
+                    scheduleNextAnimeUpdate();
+                }
+            }
+        });
+
+        animeImageIntervalSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                long intervalMillis = INTERVALS[progress];
+                updateImageIntervalText(intervalMillis);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                long intervalMillis = INTERVALS[seekBar.getProgress()];
+                RandomAnimeImageWidget.setUpdateInterval(MainActivity.this, intervalMillis);
+                if (intervalMillis > 0) {
+                    scheduleNextImageUpdate();
+                }
             }
         });
 
@@ -175,7 +214,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateIntervalText(long intervalMillis) {
-        if (intervalMillis < 60 * 60 * 1000) {
+        if (intervalMillis == 0) {
+            String factsTxt = "Facts update interval: Off";
+            intervalTextView.setText(factsTxt);
+        } else if (intervalMillis < 60 * 60 * 1000) {
             int minutes = (int) (intervalMillis / (60 * 1000));
             String minutesTxt = "Facts update interval: " + minutes + " minutes";
             intervalTextView.setText(minutesTxt);
@@ -187,7 +229,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateAnimeIntervalText(long intervalMillis) {
-        if (intervalMillis < 60 * 60 * 1000) {
+        if (intervalMillis == 0) {
+            String animeFacts = "Anime facts update interval: Off";
+            animeIntervalTextView.setText(animeFacts);
+        } else if (intervalMillis < 60 * 60 * 1000) {
             int minutes = (int) (intervalMillis / (60 * 1000));
             String minutesTxt = "Anime facts update interval: " + minutes + " minutes";
             animeIntervalTextView.setText(minutesTxt);
@@ -198,14 +243,29 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void updateImageIntervalText(long intervalMillis) {
+        if (intervalMillis == 0) {
+            String animeImageTxt = "Anime image update interval: Off";
+            animeImageIntervalTextView.setText(animeImageTxt);
+        } else if (intervalMillis < 60 * 60 * 1000) {
+            int minutes = (int) (intervalMillis / (60 * 1000));
+            String minutesTxt = "Anime image update interval: " + minutes + " minutes";
+            animeImageIntervalTextView.setText(minutesTxt);
+        } else {
+            int hours = (int) (intervalMillis / (60 * 60 * 1000));
+            String hoursTxt = "Anime image update interval: " + hours + " hours";
+            animeImageIntervalTextView.setText(hoursTxt);
+        }
+    }
+
     private long getUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[4]); // Default to 1 hour
+        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[1]); // Default to off
     }
 
     private long getAnimeUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomAnimeFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[4]); // Default to 1 hour
+        return prefs.getLong(RandomAnimeFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[1]); // Default to off
     }
 
     private int millisToProgress(long millis) {
@@ -252,12 +312,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupSeekBar() {
         long currentIntervalMillis = getUpdateIntervalMillis();
-        if (currentIntervalMillis == 0) {
-            currentIntervalMillis = 3600000; // Default to 1 hour if no interval is set
-            RandomFactsWidget.setUpdateInterval(this, currentIntervalMillis);
-        }
         int progress = millisToProgress(currentIntervalMillis);
-        intervalSeekBar.setMax(SEEKBAR_STEPS - 1);
+        intervalSeekBar.setMax(INTERVALS.length - 1);
         intervalSeekBar.setProgress(progress);
         intervalSeekBar.setEnabled(true);
         updateIntervalText(currentIntervalMillis);
@@ -265,15 +321,20 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupAnimeSeekBar() {
         long currentIntervalMillis = getAnimeUpdateIntervalMillis();
-        if (currentIntervalMillis == 0) {
-            currentIntervalMillis = 3600000; // Default to 1 hour if no interval is set
-            RandomAnimeFactsWidget.setUpdateInterval(this, currentIntervalMillis);
-        }
         int progress = millisToProgress(currentIntervalMillis);
-        animeIntervalSeekBar.setMax(SEEKBAR_STEPS - 1);
+        animeIntervalSeekBar.setMax(INTERVALS.length - 1);
         animeIntervalSeekBar.setProgress(progress);
         animeIntervalSeekBar.setEnabled(true);
         updateAnimeIntervalText(currentIntervalMillis);
+    }
+
+    private void setupImageIntervalSeekBar() {
+        long currentIntervalMillis = getImageUpdateIntervalMillis();
+        int progress = millisToProgress(currentIntervalMillis);
+        animeImageIntervalSeekBar.setMax(INTERVALS.length - 1);
+        animeImageIntervalSeekBar.setProgress(progress);
+        animeImageIntervalSeekBar.setEnabled(true);
+        updateImageIntervalText(currentIntervalMillis);
     }
 
     private void disableAutoUpdate() {
@@ -430,46 +491,6 @@ public class MainActivity extends AppCompatActivity {
         return prefs.getString(RandomAnimeImageWidget.PREF_API_SOURCE, RandomAnimeImageWidget.API_WAIFU_PICS);
     }
 
-    private void setupImageIntervalSeekBar() {
-        animeImageIntervalSeekBar.setMax(SEEKBAR_STEPS - 1);
-        animeImageIntervalSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                long intervalMillis = INTERVALS[progress];
-                updateImageIntervalText(intervalMillis);
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {
-            }
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {
-                long intervalMillis = INTERVALS[seekBar.getProgress()];
-                RandomAnimeImageWidget.setUpdateInterval(MainActivity.this, intervalMillis);
-                scheduleNextImageUpdate();
-            }
-        });
-
-        // Set initial progress
-        long currentIntervalMillis = getImageUpdateIntervalMillis();
-        int progress = millisToProgress(currentIntervalMillis);
-        animeImageIntervalSeekBar.setProgress(progress);
-        updateImageIntervalText(currentIntervalMillis);
-    }
-
-    private void updateImageIntervalText(long intervalMillis) {
-        if (intervalMillis < 60 * 60 * 1000) {
-            int minutes = (int) (intervalMillis / (60 * 1000));
-            String minutesTxt = "Anime image update interval: " + minutes + " minutes";
-            animeImageIntervalTextView.setText(minutesTxt);
-        } else {
-            int hours = (int) (intervalMillis / (60 * 60 * 1000));
-            String hoursTxt = "Anime image update interval: " + hours + " hours";
-            animeImageIntervalTextView.setText(hoursTxt);
-        }
-    }
-
     private long getImageUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getLong(RandomAnimeImageWidget.PREF_UPDATE_INTERVAL, INTERVALS[4]); // Default to 1 hour
@@ -495,6 +516,20 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Notification permission denied. Download notifications will not be shown.", Toast.LENGTH_LONG).show();
             }
+        }
+    }
+
+    private String getAppLastVersion(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(PREF_VERSION_CODE_KEY, null); // Default to "waifu"
+    }
+
+    private static String getCurrentVersionName(Context context) {
+        try {
+            PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            return packageInfo.versionName;
+        } catch (PackageManager.NameNotFoundException e) {;
+            return DOESNT_EXIST; // In case of an error, return a non-existent version code
         }
     }
 

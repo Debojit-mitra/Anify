@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bunny.entertainment.factoid.BuildConfig;
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.models.AnimeImageResponse;
 import com.bunny.entertainment.factoid.models.NekoBotImageResponse;
@@ -44,6 +45,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     public static final String PREF_UPDATE_INTERVAL = "anime_image_update_interval";
     public static final String PREF_IMAGE_CATEGORY = "anime_image_category";
     public static final String PREF_API_SOURCE = "anime_image_api_source";
+    private static final String PREF_VERSION_CODE_KEY = "version_code";
     public static final String API_WAIFU_PICS = "waifu_pics";
     public static final String API_NEKOBOT = "nekobot";
     public static final String ACTION_DOWNLOAD = "com.bunny.entertainment.factoid.widgets.ANIME_IMAGE_ACTION_DOWNLOAD";
@@ -346,6 +348,11 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     private String getImageCategory(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString(PREF_IMAGE_CATEGORY, "waifu"); // Default to "waifu"
+    }
+
+    public static void setAppLastVersion(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(PREF_VERSION_CODE_KEY, BuildConfig.VERSION_NAME).apply();
     }
 
     private void downloadImage(Context context, String imageUrl) {
