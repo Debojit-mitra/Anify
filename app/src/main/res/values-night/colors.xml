@@ -10,4 +10,5 @@
 
     <color name="mode">#272727</color>
     <color name="mode_inverse_extra">#EFEFEF</color>
+    <color name="mode_extra">#000000</color>
 </resources>

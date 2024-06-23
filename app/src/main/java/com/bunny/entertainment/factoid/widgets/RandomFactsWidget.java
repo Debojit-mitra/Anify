@@ -15,6 +15,7 @@ import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
+import android.widget.Toast;
 
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.adapter.WidgetRemoteViewsFactory;
@@ -58,6 +59,7 @@ public class RandomFactsWidget extends AppWidgetProvider {
                     showProgressBar(context);
                     new Handler(Looper.getMainLooper()).postDelayed(() -> performUpdate(context), 250); //setting delay of 250ms for showing progress bar
                 } else {
+                    Toast.makeText(context, "Ahh! No Internet connection.", Toast.LENGTH_SHORT).show();
                     Log.d("RandomFactsWidget", "No internet connection. Waiting for network.");
                     networkMonitor.startMonitoring(() -> {
                         showProgressBar(context);

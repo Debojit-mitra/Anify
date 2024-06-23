@@ -4,6 +4,7 @@
     <string name="add_widget">Add widget</string>
     <string name="app_widget_description">Get random true but useless facts</string>
     <string name="app_widget_description_anime_facts">Get random facts about Anime</string>
+    <string name="app_widget_description_anime_image">Get random anime image</string>
     <string name="update_fact">Update Fact</string>
     <string name="unable_to_fetch_facts">Unable to fetch facts!</string>
     <string name="update_interval_24_hour">Update interval: 24 hour</string>
@@ -11,4 +12,8 @@
     <string name="zero_percent">0%</string>
     <string name="preview_text">If one places a tiny amount of liquor on a scorpion, it will instantly go mad and sting itself to death.</string>
     <string name="background_image">Background Image</string>
+    <string name="anime_image_category">Anime Image Category:</string>
+    <string name="download_image">Download Image</string>
+    <string name="factoid_settings">Factoid Settings</string>
+    <string name="wallpaper">wallpaper</string>
 </resources>

@@ -1,0 +1,8 @@
+<!-- res/drawable/spinner_border.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="@android:color/transparent" /> <!-- Background color (transparent in this case) -->
+    <corners android:radius="10dp" /> <!-- Corner radius -->
+    <stroke
+        android:width="2dp"
+        android:color="@color/material_on_surface_stroke" /> <!-- Border width and color -->
+</shape>
