@@ -13,7 +13,7 @@ Factoid is an Android app that provides users with interesting random facts thro
 
 ## Screenshots
 
-| <img src="screenshots/Screenshot-1.jpg" width="250" height="auto"> | <img src="screenshots/Screenshot-2.jpg" width="250" height="auto"> |
+| <img src="screenshots/Screenshot-1.jpg" width="250" height="auto"> | <img src="screenshots/Screenshot-2.jpg" width="250" height="auto"> | <img src="screenshots/Screenshot-3.jpg" width="250" height="auto"> |
 
 ## Release
 
