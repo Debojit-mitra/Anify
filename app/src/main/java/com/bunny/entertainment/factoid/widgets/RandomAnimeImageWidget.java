@@ -51,14 +51,30 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     public static final String ACTION_DOWNLOAD = "com.bunny.entertainment.factoid.widgets.ANIME_IMAGE_ACTION_DOWNLOAD";
     public static final String ACTION_DOWNLOAD_COMPLETE = "com.bunny.entertainment.factoid.widgets.ACTION_DOWNLOAD_COMPLETE";
     public static final String ACTION_DOWNLOAD_FAILED = "com.bunny.entertainment.factoid.widgets.ACTION_DOWNLOAD_FAILED";
+    public static final String PREF_LAST_IMAGE_URL = "last_image_url";
     private NetworkMonitor networkMonitor;
     private long lastUpdateTime = 0;
     String byteSizeConstraintForWaifuIm = "<=3145728";
 
     @Override
+    public void onEnabled(Context context) {
+        super.onEnabled(context);
+        updateWidgetAfterSleep(context);
+    }
+    @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         for (int appWidgetId : appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId);
+            long updateInterval = getUpdateIntervalMillis(context);
+            if (updateInterval == 0) {
+                String lastImageUrl = getLastImageUrl(context);
+                if (lastImageUrl != null) {
+                    updateWidgetWithImage(context, appWidgetManager, appWidgetId, lastImageUrl);
+                } else {
+                    updateAppWidget(context, appWidgetManager, appWidgetId);
+                }
+            } else {
+                updateAppWidget(context, appWidgetManager, appWidgetId);
+            }
         }
         scheduleAutoUpdate(context);
     }
@@ -72,6 +88,28 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
         }
 
         String action = intent.getAction();
+
+        if (Intent.ACTION_SCREEN_ON.equals(action)) {
+            updateWidgetAfterSleep(context);
+        }
+
+        if (Intent.ACTION_BOOT_COMPLETED.equals(action)) {
+            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+            ComponentName thisWidget = new ComponentName(context, RandomAnimeImageWidget.class);
+            int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
+
+            for (int appWidgetId : appWidgetIds) {
+                long updateInterval = getUpdateIntervalMillis(context);
+                if (updateInterval == 0) {
+                    String lastImageUrl = getLastImageUrl(context);
+                    if (lastImageUrl != null) {
+                        updateWidgetWithImage(context, appWidgetManager, appWidgetId, lastImageUrl);
+                    }
+                }
+            }
+        }
+
+
         if (ACTION_REFRESH.equals(action) || ACTION_AUTO_UPDATE.equals(action)) {
             long currentTime = System.currentTimeMillis();
             long updateInterval = getUpdateIntervalMillis(context);
@@ -124,6 +162,30 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
         }
     }
 
+    private void updateWidgetAfterSleep(Context context) {
+        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+        ComponentName thisWidget = new ComponentName(context, RandomAnimeImageWidget.class);
+        int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
+
+        for (int appWidgetId : appWidgetIds) {
+            long updateInterval = getUpdateIntervalMillis(context);
+            if (updateInterval == 0) {
+                // If auto-update is off, load the last image
+                String lastImageUrl = getLastImageUrl(context);
+                if (lastImageUrl != null) {
+                    updateWidgetWithImage(context, appWidgetManager, appWidgetId, lastImageUrl);
+                } else {
+                    // If no last image, show a placeholder or error image
+                    showErrorDrawable(context, appWidgetManager, appWidgetId);
+                }
+            } else {
+                // If auto-update is on, fetch a new image
+                updateAppWidget(context, appWidgetManager, appWidgetId);
+            }
+        }
+    }
+
+
     private void performUpdate(Context context) {
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
         ComponentName thisWidget = new ComponentName(context, RandomAnimeImageWidget.class);
@@ -162,8 +224,8 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
             @Override
             public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
-                Log.e("RandomAnimeImageWidget", "Failed to fetch image", t);
-                sendUpdateFinishedBroadcast(context);
+                handleApiFailure(context, appWidgetManager, appWidgetIds, "Failed to fetch image: " + t.getMessage());
+
             }
         });
     }
@@ -184,8 +246,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
             @Override
             public void onFailure(@NonNull Call<WaifuImResponse> call, @NonNull Throwable t) {
-                Log.e("RandomAnimeImageWidget", "Failed to fetch image", t);
-                sendUpdateFinishedBroadcast(context);
+                handleApiFailure(context, appWidgetManager, appWidgetIds, "Failed to fetch image: " + t.getMessage());
             }
         });
     }
@@ -280,7 +341,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
             @Override
             public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
-                Log.e("RandomAnimeImageWidget", "Error fetching image", t);
+                handleApiFailure(context, appWidgetManager, appWidgetId, "Failed to fetch image: " + t.getMessage());
             }
         });
     }
@@ -370,8 +431,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
                 @Override
                 public void onFailure(@NonNull Call<NekoBotImageResponse> call, @NonNull Throwable t) {
-                    Log.e("RandomAnimeImageWidget", "Failed to fetch image", t);
-                    sendUpdateFinishedBroadcast(context);
+                    handleApiFailure(context, appWidgetManager, appWidgetId, "Failed to fetch image: " + t.getMessage());
                 }
             });
         } else if (API_WAIFU_IM.equals(apiSource)) {
@@ -390,8 +450,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
                 @Override
                 public void onFailure(@NonNull Call<WaifuImResponse> call, @NonNull Throwable t) {
-                    Log.e("RandomAnimeImageWidget", "Failed to fetch image", t);
-                    sendUpdateFinishedBroadcast(context);
+                    handleApiFailure(context, appWidgetManager, appWidgetId, "Failed to fetch image: " + t.getMessage());
                 }
             });
         }
@@ -399,8 +458,10 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
     private void updateWidgetWithImage(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String imageUrl) {
         loadImageWithRetry(context, appWidgetManager, appWidgetId, imageUrl, 0);
+        if (imageUrl != null) {
+            saveLastImageUrl(context, imageUrl);
+        }
     }
-
     private void scheduleAutoUpdate(Context context) {
         long intervalMillis = getUpdateIntervalMillis(context);
         if (intervalMillis == 0) {
@@ -461,6 +522,33 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
         }
     }
 
+    private void handleApiFailure(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds, String errorMessage) {
+        Log.e("RandomAnimeImageWidget", errorMessage);
+        for (int appWidgetId : appWidgetIds) {
+            showErrorDrawable(context, appWidgetManager, appWidgetId);
+        }
+        sendUpdateFinishedBroadcast(context);
+    }
+
+    private void handleApiFailure(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String errorMessage) {
+        handleApiFailure(context, appWidgetManager, new int[]{appWidgetId}, errorMessage);
+    }
+
+    private void showErrorDrawable(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_anime_image_widget);
+        views.setImageViewResource(R.id.widget_image_view, R.drawable.ic_error);
+        setupWidgetButtons(context, views, appWidgetId, null);
+        appWidgetManager.updateAppWidget(appWidgetId, views);
+    }
+    private static void saveLastImageUrl(Context context, String imageUrl) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(PREF_LAST_IMAGE_URL, imageUrl).apply();
+    }
+
+    private static String getLastImageUrl(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(PREF_LAST_IMAGE_URL, null);
+    }
     @Override
     public void onDisabled(Context context) {
         super.onDisabled(context);

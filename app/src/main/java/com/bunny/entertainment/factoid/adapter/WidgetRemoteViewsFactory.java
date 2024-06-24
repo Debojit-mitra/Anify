@@ -1,6 +1,7 @@
 package com.bunny.entertainment.factoid.adapter;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.util.Log;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
@@ -10,6 +11,7 @@ import com.bunny.entertainment.factoid.models.FactResponse;
 import com.bunny.entertainment.factoid.networks.ApiService;
 import com.bunny.entertainment.factoid.networks.NetworkUtils;
 import com.bunny.entertainment.factoid.networks.RetrofitClient;
+import com.bunny.entertainment.factoid.widgets.RandomFactsWidget;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +22,8 @@ public class WidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsF
     private final Context context;
     private final List<String> facts;
     private static boolean shouldRefresh = false;
+    private static final String PREFS_NAME = "FactsWidgetPrefs";
+    private static final String LAST_FACT_KEY = "last_fact";
 
 
     public WidgetRemoteViewsFactory(Context context) {
@@ -29,11 +33,25 @@ public class WidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsF
 
     @Override
     public void onCreate() {
+        String lastFact = getLastShownFact();
+        if (!lastFact.isEmpty()) {
+            facts.add(lastFact);
+        }
     }
 
     @Override
     public void onDataSetChanged() {
-        if (facts.isEmpty() || shouldRefresh) {
+        long updateInterval = getUpdateIntervalMillis();
+        if (updateInterval == 0) { // "Off" state
+            String lastFact = getLastShownFact();
+            if (!lastFact.isEmpty()) {
+                facts.clear();
+                facts.add(lastFact);
+            } else if (facts.isEmpty()) {
+                // If there's no last fact and the list is empty, fetch a new fact
+                fetchFacts();
+            }
+        } else if (facts.isEmpty() || shouldRefresh) {
             if (NetworkUtils.isNetworkAvailable(context)) {
                 fetchFacts();
             } else {
@@ -51,6 +69,7 @@ public class WidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsF
             if (response.isSuccessful() && response.body() != null) {
                 String fact = response.body().getText();
                 facts.add(fact);
+                saveLastShownFact(fact); // Save the new fact
                 Log.d("WidgetFactory", "Fetched fact: " + fact);
             }
             Log.d("WidgetFactory", "Total facts fetched: " + facts.size());
@@ -99,5 +118,19 @@ public class WidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsF
     @Override
     public boolean hasStableIds() {
         return true;
+    }
+    private void saveLastShownFact(String fact) {
+        SharedPreferences.Editor editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
+        editor.putString(LAST_FACT_KEY, fact);
+        editor.apply();
+    }
+
+    private String getLastShownFact() {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(LAST_FACT_KEY, "");
+    }
+    private long getUpdateIntervalMillis() {
+        SharedPreferences prefs = context.getSharedPreferences(RandomFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, 3600000); // Default to 1 hour
     }
 }

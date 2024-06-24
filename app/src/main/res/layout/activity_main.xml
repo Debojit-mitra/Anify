@@ -89,17 +89,21 @@
             android:layout_marginEnd="5dp"
             />
 
-
-        <Spinner
-            android:id="@+id/api_source_spinner"
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="10dp"
             android:layout_marginBottom="10dp"
             android:layout_marginStart="10dp"
-            android:layout_marginEnd="10dp"
-            android:padding="8dp"
-            />
+            android:layout_marginEnd="10dp">
+            <Spinner
+                android:id="@+id/api_source_spinner"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="8dp"
+                />
+        </com.google.android.material.card.MaterialCardView>
+
 
         <TextView
             android:layout_width="wrap_content"
@@ -107,20 +111,28 @@
             android:text="@string/anime_image_category"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:layout_marginTop="20dp"
+           android:layout_marginTop="10dp"
             android:layout_marginStart="5dp"
             android:layout_marginEnd="5dp"
             />
 
-        <Spinner
-            android:id="@+id/category_spinner"
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
             android:layout_marginStart="10dp"
-            android:layout_marginEnd="10dp"
-            android:padding="8dp"
-            />
+            android:layout_marginEnd="10dp">
+            <Spinner
+                android:id="@+id/category_spinner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+
+                android:padding="8dp"
+                />
+        </com.google.android.material.card.MaterialCardView>
+
+
 
 
         <TextView

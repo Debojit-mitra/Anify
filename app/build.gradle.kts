@@ -41,8 +41,12 @@ android {
             buildFeatures {
                 buildConfig = true
             }
+            applicationIdSuffix = ".debug"
+            isDebuggable = true
+            resValue("string", "app_name", "Factoid Debug")
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8

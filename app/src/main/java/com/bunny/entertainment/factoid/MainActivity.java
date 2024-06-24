@@ -103,7 +103,7 @@ public class MainActivity extends AppCompatActivity {
 
         setupSeekBar();
 
-        if (isFirstTime() || getAppLastVersion(MainActivity.this) == null && !getCurrentVersionName(MainActivity.this).equals(getAppLastVersion(MainActivity.this))) {
+        if (isFirstTime() || getAppLastVersion(MainActivity.this) != null && !getCurrentVersionName(MainActivity.this).equals(getAppLastVersion(MainActivity.this))) {
             showNotificationPermissionDialog();
             if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
                 showPermissionRequiredDialog();
@@ -261,12 +261,12 @@ public class MainActivity extends AppCompatActivity {
 
     private long getUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1hr
+        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[3]); // Default to 1hr
     }
 
     private long getAnimeUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomAnimeFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1hr
+        return prefs.getLong(RandomAnimeFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[3]); // Default to 1hr
     }
 
     private int millisToProgress(long millis) {
@@ -553,7 +553,7 @@ public class MainActivity extends AppCompatActivity {
 
     private long getImageUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomAnimeImageWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1 hour
+        return prefs.getLong(RandomAnimeImageWidget.PREF_UPDATE_INTERVAL, INTERVALS[3]); // Default to 1 hour
     }
 
     private void scheduleNextImageUpdate() {
