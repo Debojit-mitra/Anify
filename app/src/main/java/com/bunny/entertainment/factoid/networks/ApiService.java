@@ -20,11 +20,11 @@ public interface ApiService {
     Call<AnimeFactResponse> getAnimeFact();
 
     @GET("sfw/{category}")
-    Call<AnimeImageResponse> getAnimeImage(@Path("category") String category);
-
+    Call<AnimeImageResponse> getSfwImageWaifuPics(@Path("category") String category);
+    @GET("nsfw/{category}")
+    Call<AnimeImageResponse> getNsfwImageWaifuPics(@Path("category") String category);
     @GET("api/image")
     Call<NekoBotImageResponse> getNekoBotImage(@Query("type") String type);
-
     @GET("search")
     Call<WaifuImResponse> getWaifuImImage(@Query("included_tags") String tag, @Query("byte_size") String byteSize);
 }

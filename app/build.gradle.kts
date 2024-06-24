@@ -21,7 +21,7 @@ android {
         minSdk = 30
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0.3"
+        versionName = "1.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -43,7 +43,7 @@ android {
             }
             applicationIdSuffix = ".debug"
             isDebuggable = true
-            resValue("string", "app_name", "Factoid Debug")
+            resValue("string", "app_name", "Anidot Debug")
         }
     }
 

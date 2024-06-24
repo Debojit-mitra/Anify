@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bunny.entertainment.factoid.MainActivity;
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.models.AnimeImageResponse;
 import com.bunny.entertainment.factoid.models.NekoBotImageResponse;
@@ -32,8 +33,6 @@ import com.bunny.entertainment.factoid.networks.NetworkMonitor;
 import com.bunny.entertainment.factoid.networks.NetworkUtils;
 import com.bunny.entertainment.factoid.networks.RetrofitClient;
 import com.bunny.entertainment.factoid.utils.DownloadService;
-
-import java.util.concurrent.TimeUnit;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -48,6 +47,9 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     public static final String PREF_IMAGE_CATEGORY = "anime_image_category";
     public static final String PREF_API_SOURCE = "anime_image_api_source";
     public static final String API_WAIFU_PICS = "waifu_pics";
+    public static final String API_WAIFU_PICS_NSFW = "waifu_pics_nsfw";
+    public static final String API_NEKOBOT_NSFW = "nekobot_nsfw";
+    public static final String API_WAIFU_IM_NSFW = "waifu_im_nsfw";
     public static final String API_NEKOBOT = "nekobot";
     public static final String API_WAIFU_IM = "waifu_im";
     public static final String ACTION_DOWNLOAD = "com.bunny.entertainment.factoid.widgets.ANIME_IMAGE_ACTION_DOWNLOAD";
@@ -66,6 +68,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
+
         for (int appWidgetId : appWidgetIds) {
             long updateInterval = getUpdateIntervalMillis(context);
             if (updateInterval == 0) {
@@ -207,7 +210,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
     private void fetchAndUpdateImage(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds, String category) {
         String apiSource = getApiSource(context);
-        if (API_WAIFU_PICS.equals(apiSource)) {
+        if (API_WAIFU_PICS.equals(apiSource) || API_WAIFU_PICS_NSFW.equals(apiSource)) {
             fetchWaifuPicsImage(context, appWidgetManager, appWidgetIds, category);
         } else if (API_NEKOBOT.equals(apiSource)) {
             fetchNekoBotImage(context, appWidgetManager, appWidgetIds, category);
@@ -218,24 +221,45 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
     private void fetchWaifuPicsImage(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds, String category) {
         ApiService apiService = RetrofitClient.getApiServiceAnimeImages();
-        apiService.getAnimeImage(category).enqueue(new Callback<AnimeImageResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<AnimeImageResponse> call, @NonNull Response<AnimeImageResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    String imageUrl = response.body().getUrl();
-                    for (int appWidgetId : appWidgetIds) {
-                        updateWidgetWithImage(context, appWidgetManager, appWidgetId, imageUrl);
+        boolean nsfw = getNSFWSwitchState(context);
+        if (nsfw) {
+            apiService.getNsfwImageWaifuPics(category).enqueue(new Callback<AnimeImageResponse>() {
+                @Override
+                public void onResponse(@NonNull Call<AnimeImageResponse> call, @NonNull Response<AnimeImageResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        String imageUrl = response.body().getUrl();
+                        for (int appWidgetId : appWidgetIds) {
+                            updateWidgetWithImage(context, appWidgetManager, appWidgetId, imageUrl);
+                        }
                     }
+                    sendUpdateFinishedBroadcast(context);
                 }
-                sendUpdateFinishedBroadcast(context);
-            }
 
-            @Override
-            public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
-                handleApiFailure(context, appWidgetManager, appWidgetIds, "Failed to fetch image: " + t.getMessage());
+                @Override
+                public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
+                    handleApiFailure(context, appWidgetManager, appWidgetIds, "Failed to fetch image: " + t.getMessage());
 
-            }
-        });
+                }
+            });
+        } else {
+            apiService.getSfwImageWaifuPics(category).enqueue(new Callback<AnimeImageResponse>() {
+                @Override
+                public void onResponse(@NonNull Call<AnimeImageResponse> call, @NonNull Response<AnimeImageResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        String imageUrl = response.body().getUrl();
+                        for (int appWidgetId : appWidgetIds) {
+                            updateWidgetWithImage(context, appWidgetManager, appWidgetId, imageUrl);
+                        }
+                    }
+                    sendUpdateFinishedBroadcast(context);
+                }
+                @Override
+                public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
+                    handleApiFailure(context, appWidgetManager, appWidgetIds, "Failed to fetch image: " + t.getMessage());
+
+                }
+            });
+        }
     }
 
     private void fetchWaifuImImage(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds, String category) {
@@ -336,7 +360,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     private void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         String category = getImageCategory(context);
         ApiService apiService = RetrofitClient.getApiServiceAnimeImages();
-        apiService.getAnimeImage(category).enqueue(new Callback<AnimeImageResponse>() {
+        apiService.getSfwImageWaifuPics(category).enqueue(new Callback<AnimeImageResponse>() {
             @Override
             public void onResponse(@NonNull Call<AnimeImageResponse> call, @NonNull Response<AnimeImageResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -355,7 +379,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     }
 
     private void loadImageWithRetry(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String imageUrl, int retryCount) {
-        if (retryCount == 1){
+        if (retryCount == -1 || retryCount == 1){
             showProgressBar(context);
         }
             if (retryCount > 3) {
@@ -380,7 +404,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
                     new Handler(Looper.getMainLooper()).post(() -> {
                         views.setImageViewBitmap(R.id.widget_image_view, bitmap);
                         hideProgressBar(context);
-                        setupWidgetButtons(context, views, appWidgetId, imageUrl);
+                        setupWidgetButtons(context, views, imageUrl);
                         appWidgetManager.updateAppWidget(appWidgetId, views);
                     });
                 } catch (Exception e) {
@@ -395,7 +419,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
             }).start();
     }
 
-    private void setupWidgetButtons(Context context, RemoteViews views, int appWidgetId, String imageUrl) {
+    private void setupWidgetButtons(Context context, RemoteViews views, String imageUrl) {
         // Set up refresh button
         Intent refreshIntent = new Intent(context, RandomAnimeImageWidget.class);
         refreshIntent.setAction(ACTION_REFRESH);
@@ -417,7 +441,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
         ApiService apiService;
         if (API_WAIFU_PICS.equals(apiSource)) {
             apiService = RetrofitClient.getApiServiceAnimeImages();
-            apiService.getAnimeImage(category).enqueue(new Callback<AnimeImageResponse>() {
+            apiService.getSfwImageWaifuPics(category).enqueue(new Callback<AnimeImageResponse>() {
                 @Override
                 public void onResponse(@NonNull Call<AnimeImageResponse> call, @NonNull Response<AnimeImageResponse> response) {
                     if (response.isSuccessful() && response.body() != null) {
@@ -557,7 +581,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     private void showErrorDrawable(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_anime_image_widget);
         views.setImageViewResource(R.id.widget_image_view, R.drawable.ic_error);
-        setupWidgetButtons(context, views, appWidgetId, null);
+        setupWidgetButtons(context, views, null);
         appWidgetManager.updateAppWidget(appWidgetId, views);
     }
 
@@ -569,6 +593,12 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     private static String getLastImageUrl(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString(PREF_LAST_IMAGE_URL, null);
+    }
+
+    private boolean getNSFWSwitchState(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(MainActivity.PREFS_NSFW_SWITCH, Context.MODE_PRIVATE);
+        String mode = prefs.getString("mode", "OFF");
+        return mode.equals("ON");
     }
 
     @Override

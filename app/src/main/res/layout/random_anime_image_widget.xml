@@ -1,9 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/rounded_shape"
-    >
+    android:background="@drawable/rounded_shape">
 
     <ImageView
         android:id="@+id/widget_image_view"
@@ -13,12 +13,18 @@
         android:contentDescription="@string/wallpaper" />
 
     <RelativeLayout
+        android:id="@+id/layout_for_download_refresh_btn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom">
+
+    <RelativeLayout
         android:id="@+id/widget_refresh_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_margin="7dp"
         android:elevation="5dp"
-        android:layout_gravity="bottom|end">
+        android:layout_alignParentEnd="true">
 
         <LinearLayout
             android:layout_width="22dp"
@@ -64,7 +70,7 @@
         android:layout_height="wrap_content"
         android:layout_margin="7dp"
         android:elevation="5dp"
-        android:layout_gravity="bottom|start">
+        android:layout_alignParentStart="true">
 
         <LinearLayout
             android:layout_width="22dp"
@@ -99,6 +105,8 @@
             android:indeterminate="true"
             android:indeterminateTint="@color/mode_inverse_extra"
             android:visibility="gone" />
+
+    </RelativeLayout>
 
     </RelativeLayout>
 

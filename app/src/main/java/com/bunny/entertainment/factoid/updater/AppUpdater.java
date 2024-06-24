@@ -104,8 +104,9 @@ public class AppUpdater {
         new MaterialAlertDialogBuilder(context)
                 .setTitle("Update Ready")
                 .setMessage("A new version (" + newVersion + ") is ready to install.\n\nRelease Notes:\n" + releaseNotes)
+                .setCancelable(false)
                 .setPositiveButton("Install", (dialog, which) -> installExistingUpdate())
-                .setNegativeButton("Later", null)
+                .setNegativeButton("Later", (dialog, which) -> dialog.dismiss())
                 .show();
     }
 
@@ -165,8 +166,9 @@ public class AppUpdater {
         new MaterialAlertDialogBuilder(context)
                 .setTitle("Update Available")
                 .setMessage("A new version (" + newVersion + ") is available.\n\nRelease Notes:\n" + releaseNotes)
+                .setCancelable(false)
                 .setPositiveButton("Update", (dialog, which) -> handleUpdateClick(newVersion, downloadUrl))
-                .setNegativeButton("Later", null)
+                .setNegativeButton("Later", (dialog, which) -> dialog.dismiss())
                 .show();
     }
 
@@ -194,7 +196,7 @@ public class AppUpdater {
                     }
                     storeDownloadInfo(newVersion, downloadUrl);
                 })
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
                 .show();
     }
 
@@ -221,8 +223,9 @@ public class AppUpdater {
         new MaterialAlertDialogBuilder(context)
                 .setTitle("Download Update")
                 .setMessage("Are you ready to download the update?")
+                .setCancelable(false)
                 .setPositiveButton("Download", (dialog, which) -> downloadAndInstallUpdate(newVersion, downloadUrl))
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
                 .show();
     }
 
@@ -314,6 +317,7 @@ public class AppUpdater {
             new MaterialAlertDialogBuilder(context)
                     .setTitle("Update Downloaded")
                     .setMessage("Would you like to install the update now?")
+                    .setCancelable(false)
                     .setPositiveButton("Install", (dialog, which) -> {
                         dialog.dismiss();
                         installUpdate(file);

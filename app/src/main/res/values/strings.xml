@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Factoid</string>
+    <string name="app_name">Anidot</string>
     <string name="appwidget_text">Random Facts</string>
     <string name="add_widget">Add widget</string>
     <string name="app_widget_description">Get random true but useless facts</string>
@@ -14,7 +14,9 @@
     <string name="background_image">Background Image</string>
     <string name="anime_image_category">Anime Image Category:</string>
     <string name="download_image">Download Image</string>
-    <string name="factoid_settings">Factoid Settings</string>
+    <string name="factoid_settings">Anidot Settings</string>
     <string name="wallpaper">wallpaper</string>
     <string name="anime_image_source">Anime Image Source</string>
+    <string name="image_download_and_refresh_button_position">Image download and refresh button position</string>
+    <string name="nsfw">NSFW</string>
 </resources>

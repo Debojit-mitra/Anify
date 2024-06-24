@@ -10,6 +10,8 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -34,6 +36,7 @@ import com.bunny.entertainment.factoid.widgets.RandomAnimeFactsWidget;
 import com.bunny.entertainment.factoid.widgets.RandomAnimeImageWidget;
 import com.bunny.entertainment.factoid.widgets.RandomFactsWidget;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.util.Arrays;
 
@@ -46,12 +49,12 @@ public class MainActivity extends AppCompatActivity {
     public static final int REQUEST_INSTALL_PACKAGES = 1002;
     private static final int REQUEST_NOTIFICATION_PERMISSION = 1003;
     public static final String PREFS_NAME = "com.bunny.entertainment.factoid.AnimeImageWidgetPrefs";
+    public static final String PREFS_NSFW_SWITCH = "nsfw_switch";
     private static final String PREF_VERSION_CODE_KEY = "version_code";
     private static final String DOESNT_EXIST = null;
     private Spinner apiSourceSpinner, categorySpinner;
-    private String currentApiSource, currentCategory, lastWaifuPicsCategory, lastNekoBotCategory, lastWaifuImCategory;
-
-
+    private String currentApiSource, currentCategory, lastWaifuPicsCategory, lastWaifuPicsNSFCategory, lastNekoBotCategory, lastNekoBotNSFWCategory, lastWaifuImCategory, lastWaifuImNSFWCategory;
+    private MaterialSwitch switch_nsfw;
     private static final long[] INTERVALS = {
             0L,                 // Off
             5 * 60 * 1000L,    // 5 minutes
@@ -72,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
     private AppUpdater appUpdater;
     public AppUpdater.UpdateReceiver updateReceiver;
     private static final String[] API_SOURCES = {"Waifu.pics", "NekoBot", "waifu.im"};
+    private Vibrator mVibrator;
 
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -97,10 +101,14 @@ public class MainActivity extends AppCompatActivity {
         animeImageIntervalTextView = findViewById(R.id.animeImageIntervalTextView);
         categorySpinner = findViewById(R.id.category_spinner);
         apiSourceSpinner = findViewById(R.id.api_source_spinner);
+        switch_nsfw = findViewById(R.id.switch_nsfw);
+
+        mVibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         setupApiSourceSpinner();
-
-
+        if (getNSFWSwitchState()) {
+            switch_nsfw.setChecked(true);
+        }
         setupSeekBar();
 
         if (isFirstTime() || getAppLastVersion(MainActivity.this) != null && !getCurrentVersionName(MainActivity.this).equals(getAppLastVersion(MainActivity.this))) {
@@ -111,12 +119,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             checkAlarmPermission();
         }
-
-       /* //// this is temporary
-        if () {
-            showNotificationPermissionDialog();
-            RandomAnimeImageWidget.setAppLastVersion(MainActivity.this);
-        }*/
 
         allowTextView.setOnClickListener(v -> showPermissionRequiredDialog());
 
@@ -130,6 +132,7 @@ public class MainActivity extends AppCompatActivity {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 long intervalMillis = INTERVALS[progress];
                 updateIntervalText(intervalMillis);
+                vibrate(20);
             }
 
             @Override
@@ -152,6 +155,7 @@ public class MainActivity extends AppCompatActivity {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 long intervalMillis = INTERVALS[progress];
                 updateAnimeIntervalText(intervalMillis);
+                vibrate(20);
             }
 
             @Override
@@ -173,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 long intervalMillis = INTERVALS[progress];
                 updateImageIntervalText(intervalMillis);
+                vibrate(20);
             }
 
             @Override
@@ -195,6 +200,11 @@ public class MainActivity extends AppCompatActivity {
         } else {
             registerReceiver(updateReceiver, new IntentFilter(AppUpdater.INSTALL_ACTION));
         }
+
+        apiSourceSpinner.setOnLongClickListener(v -> {
+            switch_nsfw.setVisibility(View.VISIBLE);
+            return true;
+        });
 
         appUpdater.checkForUpdates(false);
     }
@@ -261,12 +271,12 @@ public class MainActivity extends AppCompatActivity {
 
     private long getUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[3]); // Default to 1hr
+        return prefs.getLong(RandomFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1hr
     }
 
     private long getAnimeUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeFactsWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomAnimeFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[3]); // Default to 1hr
+        return prefs.getLong(RandomAnimeFactsWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1hr
     }
 
     private int millisToProgress(long millis) {
@@ -427,7 +437,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-
     private void setupApiSourceSpinner() {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, API_SOURCES);
         apiSourceSpinner.setAdapter(adapter);
@@ -436,21 +445,28 @@ public class MainActivity extends AppCompatActivity {
         switch (currentApiSource) {
             case RandomAnimeImageWidget.API_NEKOBOT:
                 index = 1;
+                showNSFWSwitch();
                 break;
             case RandomAnimeImageWidget.API_WAIFU_IM:
                 index = 2;
+                showNSFWSwitch();
                 break;
             case RandomAnimeImageWidget.API_WAIFU_PICS:
             default:
                 index = 0;
+                showNSFWSwitch();
                 break;
         }
         apiSourceSpinner.setSelection(index);
 
         // Initialize last selected categories
         lastWaifuPicsCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS);
+        lastWaifuPicsNSFCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS_NSFW);
         lastNekoBotCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT);
+        lastNekoBotNSFWCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT_NSFW);
         lastWaifuImCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM);
+        lastWaifuImNSFWCategory = getLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM_NSFW);
+
 
         apiSourceSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -458,10 +474,13 @@ public class MainActivity extends AppCompatActivity {
                 String newApiSource = position == 1 ? RandomAnimeImageWidget.API_NEKOBOT : RandomAnimeImageWidget.API_WAIFU_PICS;
                 if (position == 0) {
                     newApiSource = RandomAnimeImageWidget.API_WAIFU_PICS;
+                    showNSFWSwitch();
                 } else if (position == 1) {
                     newApiSource = RandomAnimeImageWidget.API_NEKOBOT;
+                    showNSFWSwitch();
                 } else if (position == 2) {
                     newApiSource = RandomAnimeImageWidget.API_WAIFU_IM;
+                    showNSFWSwitch();
                 }
                 if (!newApiSource.equals(currentApiSource)) {
                     // Save the current category for the previous API source
@@ -469,8 +488,17 @@ public class MainActivity extends AppCompatActivity {
                         case RandomAnimeImageWidget.API_NEKOBOT:
                             lastNekoBotCategory = currentCategory;
                             break;
+                        case RandomAnimeImageWidget.API_NEKOBOT_NSFW:
+                            lastNekoBotNSFWCategory = currentCategory;
+                            break;
                         case RandomAnimeImageWidget.API_WAIFU_IM:
                             lastWaifuImCategory = currentCategory;
+                            break;
+                        case RandomAnimeImageWidget.API_WAIFU_IM_NSFW:
+                            lastWaifuImNSFWCategory = currentCategory;
+                            break;
+                        case RandomAnimeImageWidget.API_WAIFU_PICS_NSFW:
+                            lastWaifuPicsNSFCategory = currentCategory;
                             break;
                         case RandomAnimeImageWidget.API_WAIFU_PICS:
                         default:
@@ -492,17 +520,56 @@ public class MainActivity extends AppCompatActivity {
         setupCategorySpinner();
     }
 
+    private void showNSFWSwitch() {
+        switch_nsfw.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NSFW_SWITCH, Context.MODE_PRIVATE);
+            if (isChecked) {
+                switch_nsfw.setVisibility(View.VISIBLE);
+                prefs.edit().putString("mode", "ON").apply();
+                vibrate(100);
+            } else {
+                switch_nsfw.setVisibility(View.GONE);
+                prefs.edit().putString("mode", "OFF").apply();
+                vibrate(100);
+            }
+            setupCategorySpinner();
+            scheduleNextImageUpdate();
+        });
+    }
+
+    private boolean getNSFWSwitchState() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NSFW_SWITCH, Context.MODE_PRIVATE);
+        String mode = prefs.getString("mode", "OFF");
+        return mode.equals("ON");
+    }
+
     private void setupCategorySpinner() {
         String[] categories;
         if (RandomAnimeImageWidget.API_NEKOBOT.equals(currentApiSource)) {
-            categories = new String[]{"neko", "kemonomimi", "kanna", "coffee", "food"};
-            currentCategory = lastNekoBotCategory;
+            if (getNSFWSwitchState()) {
+                categories = new String[]{"hmidriff", "hentai", "holo", "hneko", "hkitsune", "thigh", "hthigh", "paizuri", "tentacle", "hboobs"};
+                currentCategory = lastNekoBotNSFWCategory;
+            } else {
+                categories = new String[]{"neko", "kemonomimi", "kanna", "coffee", "food"};
+                currentCategory = lastNekoBotCategory;
+            }
         } else if (RandomAnimeImageWidget.API_WAIFU_IM.equals(currentApiSource)) {
-            categories = new String[]{"waifu", "maid", "marin-kitagawa", "mori-calliope", "raiden-shogun", "oppai", "selfies", "uniform", "kamisato-ayaka"};
-            currentCategory = lastWaifuImCategory;
+            if (getNSFWSwitchState()) {
+                categories = new String[]{"ero", "ass", "hentai", "milf", "oral", "paizuri", "ecchi"};
+                currentCategory = lastWaifuImNSFWCategory;
+            } else {
+                categories = new String[]{"waifu", "maid", "marin-kitagawa", "mori-calliope", "raiden-shogun", "oppai", "selfies", "uniform", "kamisato-ayaka"};
+                currentCategory = lastWaifuImCategory;
+            }
         } else {
-            categories = new String[]{"waifu", "neko", "shinobu", "megumin", "awoo", "nom", "happy", "wink", "cringe"};
-            currentCategory = lastWaifuPicsCategory;
+            if (getNSFWSwitchState()) {
+                categories = new String[]{"waifu", "neko", "trap", "blowjob"};
+                currentCategory = lastWaifuPicsNSFCategory;
+            } else {
+                categories = new String[]{"waifu", "neko", "shinobu", "megumin", "awoo", "nom", "happy", "wink", "cringe"};
+                currentCategory = lastWaifuPicsCategory;
+            }
+
         }
 
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, categories);
@@ -525,14 +592,26 @@ public class MainActivity extends AppCompatActivity {
                     currentCategory = selectedCategory;
                     switch (currentApiSource) {
                         case RandomAnimeImageWidget.API_NEKOBOT:
-                            lastNekoBotCategory = currentCategory;
+                            if (getNSFWSwitchState()) {
+                                lastNekoBotNSFWCategory = currentCategory;
+                            } else {
+                                lastNekoBotCategory = currentCategory;
+                            }
                             break;
                         case RandomAnimeImageWidget.API_WAIFU_IM:
-                            lastWaifuImCategory = currentCategory;
+                            if (getNSFWSwitchState()) {
+                                lastWaifuImNSFWCategory = currentCategory;
+                            } else {
+                                lastWaifuImCategory = currentCategory;
+                            }
                             break;
                         case RandomAnimeImageWidget.API_WAIFU_PICS:
                         default:
-                            lastWaifuPicsCategory = currentCategory;
+                            if (getNSFWSwitchState()) {
+                                lastWaifuPicsNSFCategory = currentCategory;
+                            } else {
+                                lastWaifuPicsCategory = currentCategory;
+                            }
                             break;
                     }
                     RandomAnimeImageWidget.setImageCategory(MainActivity.this, selectedCategory);
@@ -546,6 +625,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+
     private String getApiSource() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString(RandomAnimeImageWidget.PREF_API_SOURCE, RandomAnimeImageWidget.API_WAIFU_PICS);
@@ -553,7 +633,7 @@ public class MainActivity extends AppCompatActivity {
 
     private long getImageUpdateIntervalMillis() {
         SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(RandomAnimeImageWidget.PREF_UPDATE_INTERVAL, INTERVALS[3]); // Default to 1 hour
+        return prefs.getLong(RandomAnimeImageWidget.PREF_UPDATE_INTERVAL, INTERVALS[5]); // Default to 1 hour
     }
 
     private void scheduleNextImageUpdate() {
@@ -576,7 +656,7 @@ public class MainActivity extends AppCompatActivity {
 
     private String getAppLastVersion(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getString(PREF_VERSION_CODE_KEY, null); // Default to "waifu"
+        return prefs.getString(PREF_VERSION_CODE_KEY, null);
     }
 
     private static String getCurrentVersionName(Context context) {
@@ -594,13 +674,15 @@ public class MainActivity extends AppCompatActivity {
         String defaultCategory;
 
         switch (apiSource) {
-            case RandomAnimeImageWidget.API_WAIFU_PICS:
-                defaultCategory = "waifu";
-                break;
             case RandomAnimeImageWidget.API_NEKOBOT:
                 defaultCategory = "neko";
                 break;
-            case RandomAnimeImageWidget.API_WAIFU_IM:
+            case RandomAnimeImageWidget.API_NEKOBOT_NSFW:
+                defaultCategory = "ass";
+                break;
+            case RandomAnimeImageWidget.API_WAIFU_IM_NSFW:
+                defaultCategory = "ero";
+                break;
             default:
                 defaultCategory = "waifu";
         }
@@ -614,6 +696,21 @@ public class MainActivity extends AppCompatActivity {
         prefs.edit().putString(key, category).apply();
     }
 
+    private void saveLastCategories() {
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS_NSFW, lastWaifuPicsNSFCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS, lastWaifuPicsCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT_NSFW, lastNekoBotNSFWCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT, lastNekoBotCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM, lastWaifuImCategory);
+        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM_NSFW, lastWaifuImNSFWCategory);
+    }
+
+    private void vibrate(int vibrateTime) {
+        if (mVibrator != null) {
+            mVibrator.vibrate(VibrationEffect.createOneShot(vibrateTime, VibrationEffect.DEFAULT_AMPLITUDE));
+        }
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -622,18 +719,21 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS, lastWaifuPicsCategory);
-        saveLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT, lastNekoBotCategory);
-        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM, lastWaifuImCategory);
+        saveLastCategories();
         super.onDestroy();
         unregisterReceiver(updateReceiver);
     }
 
     @Override
     protected void onStop() {
-        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_PICS, lastWaifuPicsCategory);
-        saveLastSelectedCategory(RandomAnimeImageWidget.API_NEKOBOT, lastNekoBotCategory);
-        saveLastSelectedCategory(RandomAnimeImageWidget.API_WAIFU_IM, lastWaifuImCategory);
+        saveLastCategories();
         super.onStop();
     }
+
+    @Override
+    protected void onPause() {
+
+        super.onPause();
+    }
+
 }

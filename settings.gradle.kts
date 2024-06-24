@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Factoid"
+rootProject.name = "Anidot"
 include(":app")
  
