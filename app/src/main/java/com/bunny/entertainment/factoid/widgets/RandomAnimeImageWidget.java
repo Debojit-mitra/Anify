@@ -11,7 +11,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -20,9 +22,12 @@ import android.widget.RemoteViews;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.request.target.CustomTarget;
+import com.bumptech.glide.request.transition.Transition;
 import com.bunny.entertainment.factoid.MainActivity;
 import com.bunny.entertainment.factoid.R;
 import com.bunny.entertainment.factoid.models.AnimeImageResponse;
@@ -63,24 +68,21 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     @Override
     public void onEnabled(Context context) {
         super.onEnabled(context);
+        Log.e("onEnabled", "onEnabled");
         updateWidgetAfterSleep(context);
+        scheduleAutoUpdate(context);
+    }
+
+    @Override
+    public void onAppWidgetOptionsChanged(Context context, AppWidgetManager appWidgetManager, int appWidgetId, Bundle newOptions) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions);
+        updateAppWidget(context, appWidgetManager, appWidgetId);
     }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
-
         for (int appWidgetId : appWidgetIds) {
-            long updateInterval = getUpdateIntervalMillis(context);
-            if (updateInterval == 0) {
-                String lastImageUrl = getLastImageUrl(context);
-                if (lastImageUrl != null) {
-                    updateWidgetWithImage(context, appWidgetManager, appWidgetId, lastImageUrl);
-                } else {
-                    updateAppWidget(context, appWidgetManager, appWidgetId);
-                }
-            } else {
-                updateAppWidget(context, appWidgetManager, appWidgetId);
-            }
+            updateAppWidget(context, appWidgetManager, appWidgetId);
         }
         scheduleAutoUpdate(context);
     }
@@ -95,9 +97,16 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
         String action = intent.getAction();
 
-        if (Intent.ACTION_CONFIGURATION_CHANGED.equals(intent.getAction())) {
-            updateWidgetAfterSleep(context);
-        } else if (Intent.ACTION_SCREEN_ON.equals(action)) {
+        if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
+            Log.e("ACTION_MY_PACKAGE_REPLACED", "ACTION_MY_PACKAGE_REPLACED");
+            AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+            ComponentName thisWidget = new ComponentName(context, RandomAnimeImageWidget.class);
+            int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
+            onUpdate(context, appWidgetManager, appWidgetIds);
+        }
+
+
+        if (Intent.ACTION_CONFIGURATION_CHANGED.equals(intent.getAction()) || Intent.ACTION_SCREEN_ON.equals(action)) {
             updateWidgetAfterSleep(context);
         }
 
@@ -119,6 +128,8 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
 
 
         if (ACTION_REFRESH.equals(action) || ACTION_AUTO_UPDATE.equals(action)) {
+            Log.e("ACTION_REFRESH", "ACTION_REFRESH");
+            // if (!onEnabledCalled) {
             long currentTime = System.currentTimeMillis();
             long updateInterval = getUpdateIntervalMillis(context);
             if (currentTime - lastUpdateTime >= updateInterval) {
@@ -133,6 +144,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
                     });
                 }
             }
+            //   }
         } else if (ACTION_UPDATE_FINISHED.equals(action)) {
             hideProgressBar(context);
             lastUpdateTime = System.currentTimeMillis();
@@ -177,22 +189,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
         int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
 
         for (int appWidgetId : appWidgetIds) {
-            long updateInterval = getUpdateIntervalMillis(context);
-            Log.d("RandomAnimeImageWidget", "Update interval: " + updateInterval);
-            if (updateInterval == 0) {
-                // If auto-update is off, load the last image
-                String lastImageUrl = getLastImageUrl(context);
-                Log.d("RandomAnimeImageWidget", "Last image URL: " + lastImageUrl);
-                if (lastImageUrl != null) {
-                    updateWidgetWithImage(context, appWidgetManager, appWidgetId, lastImageUrl);
-                } else {
-                    // If no last image, show a placeholder or error image
-                    showErrorDrawable(context, appWidgetManager, appWidgetId);
-                }
-            } else {
-                // If auto-update is on, fetch a new image
-                updateAppWidget(context, appWidgetManager, appWidgetId);
-            }
+            updateAppWidget(context, appWidgetManager, appWidgetId);
         }
     }
 
@@ -253,6 +250,7 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
                     }
                     sendUpdateFinishedBroadcast(context);
                 }
+
                 @Override
                 public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
                     handleApiFailure(context, appWidgetManager, appWidgetIds, "Failed to fetch image: " + t.getMessage());
@@ -358,65 +356,81 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     }
 
     private void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
-        String category = getImageCategory(context);
-        ApiService apiService = RetrofitClient.getApiServiceAnimeImages();
-        apiService.getSfwImageWaifuPics(category).enqueue(new Callback<AnimeImageResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<AnimeImageResponse> call, @NonNull Response<AnimeImageResponse> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    String imageUrl = response.body().getUrl();
-                    updateWidgetWithImage(context, appWidgetManager, appWidgetId, imageUrl);
-                } else {
-                    Log.e("RandomAnimeImageWidget", "Failed to fetch image: " + response.message());
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<AnimeImageResponse> call, @NonNull Throwable t) {
-                handleApiFailure(context, appWidgetManager, appWidgetId, "Failed to fetch image: " + t.getMessage());
-            }
-        });
+        String lastImageUrl = getLastImageUrl(context);
+        if (lastImageUrl != null) {
+            updateWidgetWithImage(context, appWidgetManager, appWidgetId, lastImageUrl);
+        } else {
+            showPlaceholderImage(context, appWidgetManager, appWidgetId);
+            fetchNewImageAndUpdate(context, appWidgetManager, appWidgetId);
+        }
     }
 
+    private void fetchNewImageAndUpdate(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
+        String category = getImageCategory(context);
+        String apiSource = getApiSource(context);
+
+        if (API_WAIFU_PICS.equals(apiSource) || API_WAIFU_PICS_NSFW.equals(apiSource)) {
+            fetchWaifuPicsImage(context, appWidgetManager, new int[]{appWidgetId}, category);
+        } else if (API_NEKOBOT.equals(apiSource)) {
+            fetchNekoBotImage(context, appWidgetManager, new int[]{appWidgetId}, category);
+        } else if (API_WAIFU_IM.equals(apiSource)) {
+            fetchWaifuImImage(context, appWidgetManager, new int[]{appWidgetId}, category);
+        }
+    }
+
+    private void showPlaceholderImage(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_anime_image_widget);
+        views.setImageViewResource(R.id.widget_image_view, R.drawable.ic_loading);
+        setupWidgetButtons(context, views, null);
+        appWidgetManager.updateAppWidget(appWidgetId, views);
+    }
+
+
     private void loadImageWithRetry(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String imageUrl, int retryCount) {
-        if (retryCount == -1 || retryCount == 1){
+        if (retryCount == -1 || retryCount == 1) {
             showProgressBar(context);
         }
-            if (retryCount > 3) {
-                if (NetworkUtils.isNetworkAvailable(context)){
-                    fetchNewImageAndRetry(context, appWidgetManager, appWidgetId, retryCount + 1);
-                }
-                return;
+        if (retryCount > 3) {
+            if (NetworkUtils.isNetworkAvailable(context)) {
+                fetchNewImageAndRetry(context, appWidgetManager, appWidgetId, retryCount + 1);
             }
+            return;
+        }
 
-            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_anime_image_widget);
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_anime_image_widget);
 
-            new Thread(() -> {
+        new Thread(() -> {
+            try {
+                Glide.with(context.getApplicationContext())
+                        .asBitmap()
+                        .load(imageUrl)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .override(500, 1000)
+                        .into(new CustomTarget<Bitmap>() {
+                            @Override
+                            public void onResourceReady(@NonNull Bitmap resource, @Nullable Transition<? super Bitmap> transition) {
+                                views.setImageViewBitmap(R.id.widget_image_view, resource);
+                                hideProgressBar(context);
+                                setupWidgetButtons(context, views, imageUrl);
+                                appWidgetManager.updateAppWidget(appWidgetId, views);
+                            }
+
+                            @Override
+                            public void onLoadCleared(@Nullable Drawable placeholder) {
+                                // Handle this case if needed
+                            }
+                        });
+
+            } catch (Exception e) {
+                handleApiFailure(context, appWidgetManager, appWidgetId, "Failed to fetch image: " + e.getMessage());
                 try {
-                    Bitmap bitmap = Glide.with(context.getApplicationContext())
-                            .asBitmap()
-                            .load(imageUrl)
-                            .diskCacheStrategy(DiskCacheStrategy.NONE)
-                            .override(500, 1000)
-                            .submit()
-                            .get();
-
-                    new Handler(Looper.getMainLooper()).post(() -> {
-                        views.setImageViewBitmap(R.id.widget_image_view, bitmap);
-                        hideProgressBar(context);
-                        setupWidgetButtons(context, views, imageUrl);
-                        appWidgetManager.updateAppWidget(appWidgetId, views);
-                    });
-                } catch (Exception e) {
-                    handleApiFailure(context, appWidgetManager, appWidgetId, "Failed to fetch image: " + e.getMessage());
-                    try {
-                        Thread.sleep(2000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    loadImageWithRetry(context, appWidgetManager, appWidgetId, imageUrl, retryCount + 1);
+                    Thread.sleep(2000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
                 }
-            }).start();
+                loadImageWithRetry(context, appWidgetManager, appWidgetId, imageUrl, retryCount + 1);
+            }
+        }).start();
     }
 
     private void setupWidgetButtons(Context context, RemoteViews views, String imageUrl) {
@@ -500,9 +514,11 @@ public class RandomAnimeImageWidget extends AppWidgetProvider {
     }
 
     private void updateWidgetWithImage(Context context, AppWidgetManager appWidgetManager, int appWidgetId, String imageUrl) {
-        loadImageWithRetry(context, appWidgetManager, appWidgetId, imageUrl, 0);
         if (imageUrl != null) {
+            loadImageWithRetry(context, appWidgetManager, appWidgetId, imageUrl, 0);
             saveLastImageUrl(context, imageUrl);
+        } else {
+            showPlaceholderImage(context, appWidgetManager, appWidgetId);
         }
     }
 

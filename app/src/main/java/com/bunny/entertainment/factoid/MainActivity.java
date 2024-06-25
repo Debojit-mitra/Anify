@@ -30,8 +30,12 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkManager;
 
 import com.bunny.entertainment.factoid.updater.AppUpdater;
+import com.bunny.entertainment.factoid.utils.CacheRemovalWorker;
 import com.bunny.entertainment.factoid.widgets.RandomAnimeFactsWidget;
 import com.bunny.entertainment.factoid.widgets.RandomAnimeImageWidget;
 import com.bunny.entertainment.factoid.widgets.RandomFactsWidget;
@@ -39,11 +43,12 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
-    public SeekBar intervalSeekBar, animeIntervalSeekBar, animeImageIntervalSeekBar;
-    private TextView intervalTextView, animeIntervalTextView, animeImageIntervalTextView;
+    public SeekBar intervalSeekBar, animeIntervalSeekBar, animeImageIntervalSeekBar, cacheRemovalIntervalSeekBar;
+    private TextView intervalTextView, animeIntervalTextView, animeImageIntervalTextView, cacheRemovalIntervalTextView;
     public TextView allowTextView;
     private static final int REQUEST_SCHEDULE_EXACT_ALARM = 1001;
     public static final int REQUEST_INSTALL_PACKAGES = 1002;
@@ -70,6 +75,18 @@ public class MainActivity extends AppCompatActivity {
             8 * 60 * 60 * 1000L,   // 8 hours
             10 * 60 * 60 * 1000L,  // 10 hours
             12 * 60 * 60 * 1000L   // 12 hours
+    };
+    private static final String PREF_CACHE_REMOVAL_INTERVAL = "cache_removal_interval";
+    private static final long DEFAULT_CACHE_REMOVAL_INTERVAL = 7 * 24 * 60 * 60 * 1000; // 7 days
+    private static final long[] CACHE_INTERVALS = {
+            0L,                  // Off
+            24 * 60 * 60 * 1000L,    // 1 day
+            2 * 24 * 60 * 60 * 1000L,   // 2 days
+            3 * 24 * 60 * 60 * 1000L,   // 3 days
+            5 * 24 * 60 * 60 * 1000L,   // 5 days
+            7 * 24 * 60 * 60 * 1000L,   // 7 days
+            14 * 24 * 60 * 60 * 1000L,  // 14 days
+            30 * 24 * 60 * 60 * 1000L   // 30 days
     };
     private ActivityResultLauncher<Intent> alarmPermissionLauncher;
     private AppUpdater appUpdater;
@@ -102,6 +119,9 @@ public class MainActivity extends AppCompatActivity {
         categorySpinner = findViewById(R.id.category_spinner);
         apiSourceSpinner = findViewById(R.id.api_source_spinner);
         switch_nsfw = findViewById(R.id.switch_nsfw);
+        cacheRemovalIntervalSeekBar = findViewById(R.id.cacheRemovalIntervalSeekBar);
+        cacheRemovalIntervalTextView = findViewById(R.id.cacheRemovalIntervalTextView);
+
 
         mVibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
@@ -109,7 +129,8 @@ public class MainActivity extends AppCompatActivity {
         if (getNSFWSwitchState()) {
             switch_nsfw.setChecked(true);
         }
-        setupSeekBar();
+        setupSeekBar(true);
+        setupCacheRemovalSeekBar();
 
         if (isFirstTime() || getAppLastVersion(MainActivity.this) != null && !getCurrentVersionName(MainActivity.this).equals(getAppLastVersion(MainActivity.this))) {
             showNotificationPermissionDialog();
@@ -285,7 +306,7 @@ public class MainActivity extends AppCompatActivity {
                 return i;
             }
         }
-        return INTERVALS.length - 1;
+        return 5;
     }
 
     private void scheduleNextUpdate() {
@@ -309,43 +330,53 @@ public class MainActivity extends AppCompatActivity {
                 showAllowTextView();
             } else {
                 hideAllowTextView();
-                setupSeekBar();
-                setupAnimeSeekBar();
-                setupImageIntervalSeekBar();
+                enableAutoUpdates(true); // Pass true to indicate permission was just granted
             }
         } else {
             hideAllowTextView();
-            setupSeekBar();
-            setupAnimeSeekBar();
-            setupImageIntervalSeekBar();
+            enableAutoUpdates(false); // Pass false for older Android versions
         }
     }
+    private void enableAutoUpdates(boolean justGranted) {
+        setupSeekBar(justGranted);
+        setupAnimeSeekBar(justGranted);
+        setupImageIntervalSeekBar(justGranted);
+    }
 
-    private void setupSeekBar() {
-        long currentIntervalMillis = getUpdateIntervalMillis();
+    private void setupSeekBar(boolean justGranted) {
+        long currentIntervalMillis = justGranted ? INTERVALS[5] : getUpdateIntervalMillis();
         int progress = millisToProgress(currentIntervalMillis);
         intervalSeekBar.setMax(INTERVALS.length - 1);
         intervalSeekBar.setProgress(progress);
         intervalSeekBar.setEnabled(true);
         updateIntervalText(currentIntervalMillis);
+        if (justGranted) {
+            RandomFactsWidget.setUpdateInterval(this, currentIntervalMillis);
+        }
     }
 
-    private void setupAnimeSeekBar() {
-        long currentIntervalMillis = getAnimeUpdateIntervalMillis();
+    private void setupAnimeSeekBar(boolean justGranted) {
+        long currentIntervalMillis = justGranted ? INTERVALS[5] : getAnimeUpdateIntervalMillis();
         int progress = millisToProgress(currentIntervalMillis);
         animeIntervalSeekBar.setMax(INTERVALS.length - 1);
         animeIntervalSeekBar.setProgress(progress);
         animeIntervalSeekBar.setEnabled(true);
         updateAnimeIntervalText(currentIntervalMillis);
+        if (justGranted) {
+            RandomAnimeFactsWidget.setUpdateInterval(this, currentIntervalMillis);
+        }
     }
 
-    private void setupImageIntervalSeekBar() {
-        long currentIntervalMillis = getImageUpdateIntervalMillis();
+    private void setupImageIntervalSeekBar(boolean justGranted) {
+        long currentIntervalMillis = justGranted ? INTERVALS[5] : getImageUpdateIntervalMillis();
         int progress = millisToProgress(currentIntervalMillis);
         animeImageIntervalSeekBar.setMax(INTERVALS.length - 1);
         animeImageIntervalSeekBar.setProgress(progress);
         animeImageIntervalSeekBar.setEnabled(true);
         updateImageIntervalText(currentIntervalMillis);
+        if (justGranted) {
+            RandomAnimeImageWidget.setUpdateInterval(this, currentIntervalMillis);
+        }
     }
 
     private void disableAutoUpdate() {
@@ -401,8 +432,7 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Deny", (dialog, which) -> {
                     Toast.makeText(this, "Auto-update disabled due to missing permission.", Toast.LENGTH_SHORT).show();
-                    disableAutoUpdate();
-                    showAllowTextView();
+                    checkAlarmPermission();
                 })
                 .setCancelable(false)
                 .show();
@@ -424,6 +454,7 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_SCHEDULE_EXACT_ALARM) {
             if (RandomFactsWidget.canScheduleExactAlarms(this)) {
                 Toast.makeText(this, "Exact alarms allowed", Toast.LENGTH_SHORT).show();
+                checkAlarmPermission(); // This will set up the seekbars with default values
             } else {
                 Toast.makeText(this, "Exact alarms not allowed, widget may update less precisely", Toast.LENGTH_LONG).show();
             }
@@ -708,6 +739,88 @@ public class MainActivity extends AppCompatActivity {
     private void vibrate(int vibrateTime) {
         if (mVibrator != null) {
             mVibrator.vibrate(VibrationEffect.createOneShot(vibrateTime, VibrationEffect.DEFAULT_AMPLITUDE));
+        }
+    }
+
+    private void setupCacheRemovalSeekBar() {
+        long currentIntervalMillis = getCacheRemovalInterval();
+        int progress = millisToCacheProgress(currentIntervalMillis);
+        cacheRemovalIntervalSeekBar.setMax(CACHE_INTERVALS.length - 1);
+        cacheRemovalIntervalSeekBar.setProgress(progress);
+        updateCacheRemovalIntervalText(currentIntervalMillis);
+
+        cacheRemovalIntervalSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                long intervalMillis = CACHE_INTERVALS[progress];
+                updateCacheRemovalIntervalText(intervalMillis);
+                vibrate(20);
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                long intervalMillis = CACHE_INTERVALS[seekBar.getProgress()];
+                setCacheRemovalInterval(intervalMillis);
+                scheduleCacheRemoval();
+            }
+        });
+    }
+
+    private int millisToCacheProgress(long millis) {
+        for (int i = 0; i < CACHE_INTERVALS.length; i++) {
+            if (millis <= CACHE_INTERVALS[i]) {
+                return i;
+            }
+        }
+        return CACHE_INTERVALS.length - 1;
+    }
+
+    private void updateCacheRemovalIntervalText(long intervalMillis) {
+        if (intervalMillis == 0) {
+            cacheRemovalIntervalTextView.setText(getString(R.string.cache_removal_off));
+        } else {
+            int days = (int) (intervalMillis / (24 * 60 * 60 * 1000));
+            if (days == 1) {
+                cacheRemovalIntervalTextView.setText(R.string.cache_removal_interval_1_day);
+            } else {
+                String daysTxt = "Cache removal interval: " + days + " days";
+                cacheRemovalIntervalTextView.setText(daysTxt);
+            }
+        }
+    }
+
+    private long getCacheRemovalInterval() {
+        SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getLong(PREF_CACHE_REMOVAL_INTERVAL, DEFAULT_CACHE_REMOVAL_INTERVAL);
+    }
+
+    private void setCacheRemovalInterval(long intervalMillis) {
+        SharedPreferences prefs = getSharedPreferences(RandomAnimeImageWidget.PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putLong(PREF_CACHE_REMOVAL_INTERVAL, intervalMillis).apply();
+    }
+
+    private void scheduleCacheRemoval() {
+        long intervalMillis = getCacheRemovalInterval();
+        WorkManager.getInstance(this).cancelAllWorkByTag("cache_removal");
+        if (intervalMillis > 0) {
+
+            PeriodicWorkRequest cacheRemovalWork = new PeriodicWorkRequest.Builder(
+                    CacheRemovalWorker.class,
+                    intervalMillis,
+                    TimeUnit.MILLISECONDS
+            )
+                    .addTag("cache_removal")
+                    .build();
+
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                    "cache_removal",
+                    ExistingPeriodicWorkPolicy.UPDATE,
+                    cacheRemovalWork
+            );
         }
     }
 

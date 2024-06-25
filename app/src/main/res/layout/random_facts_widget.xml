@@ -59,5 +59,20 @@
 
     </FrameLayout>
 
+    <ImageView
+        android:id="@+id/background_img"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/background_image"
+        android:hapticFeedbackEnabled="true"
+        android:src="@drawable/ic_loading"
+        android:elevation="-1dp"
+        android:alpha="0.2"
+        android:scaleType="centerCrop"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        tools:ignore="UseAppTint" />
+
 
 </FrameLayout>

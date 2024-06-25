@@ -19,4 +19,6 @@
     <string name="anime_image_source">Anime Image Source</string>
     <string name="image_download_and_refresh_button_position">Image download and refresh button position</string>
     <string name="nsfw">NSFW</string>
+    <string name="cache_removal_off">Cache removal: Off</string>
+    <string name="cache_removal_interval_1_day">Cache removal interval: 1 day</string>
 </resources>

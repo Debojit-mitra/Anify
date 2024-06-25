@@ -27,12 +27,16 @@ public class RandomFactsWidget extends AppWidgetProvider {
     public static final String ACTION_REFRESH = "com.bunny.entertainment.factoid.widgets.ACTION_REFRESH";
     public static final String ACTION_AUTO_UPDATE = "com.bunny.entertainment.factoid.widgets.ACTION_AUTO_UPDATE";
     public static final String ACTION_UPDATE_FINISHED = "com.bunny.entertainment.factoid.widgets.ACTION_UPDATE_FINISHED";
-
     public  static final String PREFS_NAME = "com.bunny.entertainment.factoid.WidgetPrefs";
     public  static final String PREF_UPDATE_INTERVAL = "update_interval";
     private NetworkMonitor networkMonitor;
     private long lastUpdateTime = 0;
 
+    @Override
+    public void onEnabled(Context context) {
+        super.onEnabled(context);
+        scheduleAutoUpdate(context);
+    }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -167,10 +171,12 @@ public class RandomFactsWidget extends AppWidgetProvider {
     }
 
     private void hideProgressBar(Context context) {
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_facts_widget);
-        views.setViewVisibility(R.id.widget_refresh_button, View.VISIBLE);
-        views.setViewVisibility(R.id.widget_refresh_progress, View.GONE);
-        updateWidgetViews(context, views);
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.random_facts_widget);
+            views.setViewVisibility(R.id.widget_refresh_button, View.VISIBLE);
+            views.setViewVisibility(R.id.widget_refresh_progress, View.GONE);
+            updateWidgetViews(context, views);
+        }, 200);
     }
 
     private void updateWidgetViews(Context context, RemoteViews views) {
