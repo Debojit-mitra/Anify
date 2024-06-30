@@ -62,5 +62,17 @@
 
     </FrameLayout>
 
+    <ImageView
+        android:id="@+id/background_img"
+        android:layout_width="60dp"
+        android:layout_height="80dp"
+        android:src="@drawable/anime_background"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/background_image"
+        android:hapticFeedbackEnabled="true"
+        android:elevation="-1dp"
+        android:alpha="0.3"
+        android:layout_gravity="center"
+        tools:ignore="UseAppTint" />
 
 </FrameLayout>

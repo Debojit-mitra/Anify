@@ -10,25 +10,14 @@
         android:layout_height="match_parent"
         android:padding="5dp"
         android:orientation="vertical">
-
-        <ListView
-            android:id="@+id/widget_list_view"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scrollbarThumbVertical="@drawable/rounded_scrollbar"
-            android:scrollbarSize="2dp"
-            android:scrollbarStyle="outsideOverlay"
-            android:divider="@null"
-            />
-
         <TextView
-            android:id="@+id/empty_view"
+            android:id="@+id/fact_text"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:text="@string/unable_to_fetch_facts"
+            android:layout_height="wrap_content"
             android:textColor="@color/mode_inverse"
-            android:visibility="gone" />
+            android:textStyle="bold"
+            android:padding="8dp"
+            />
     </LinearLayout>
 
     <FrameLayout
@@ -61,6 +50,19 @@
             android:visibility="gone" />
 
     </FrameLayout>
+
+    <ImageView
+        android:id="@+id/background_img"
+        android:layout_width="60dp"
+        android:layout_height="80dp"
+        android:src="@drawable/anime_background"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/background_image"
+        android:hapticFeedbackEnabled="true"
+        android:elevation="-1dp"
+        android:alpha="0.7"
+        android:layout_gravity="center"
+        tools:ignore="UseAppTint" />
 
 
 </FrameLayout>

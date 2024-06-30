@@ -1,6 +1,5 @@
 package com.bunny.entertainment.anify;
 
-import static com.bunny.entertainment.anify.utils.Constants.ACTION_AUTO_UPDATE;
 import static com.bunny.entertainment.anify.utils.Constants.ACTION_RESET_ALARM;
 import static com.bunny.entertainment.anify.utils.Constants.API_NEKOBOT;
 import static com.bunny.entertainment.anify.utils.Constants.API_NEKOBOT_NSFW;
@@ -26,6 +25,7 @@ import static com.bunny.entertainment.anify.utils.Constants.PREF_LAST_WAIFU_IM_C
 import static com.bunny.entertainment.anify.utils.Constants.PREF_LAST_WAIFU_PICS_CATEGORY;
 import static com.bunny.entertainment.anify.utils.Constants.REQUEST_INSTALL_PACKAGES;
 import static com.bunny.entertainment.anify.utils.Constants.REQUEST_NOTIFICATION_PERMISSION;
+import static com.bunny.entertainment.anify.utils.Constants.WAIFU_IT_API_KEY;
 import static com.bunny.entertainment.anify.utils.Constants.categoryNsfwNekobot;
 import static com.bunny.entertainment.anify.utils.Constants.categoryNsfwWaifuIm;
 import static com.bunny.entertainment.anify.utils.Constants.categoryNsfwWaifuPics;
@@ -36,20 +36,25 @@ import static com.bunny.entertainment.anify.utils.Constants.categorySfwWaifuPics
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlarmManager;
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.SeekBar;
@@ -73,22 +78,28 @@ import androidx.work.WorkManager;
 import com.bunny.entertainment.anify.updater.AppUpdater;
 import com.bunny.entertainment.anify.utils.CacheRemovalWorker;
 import com.bunny.entertainment.anify.utils.Constants;
+import com.bunny.entertainment.anify.widgets.AnimeFactsWidget;
 import com.bunny.entertainment.anify.widgets.FactsWidget;
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     public SeekBar intervalSeekBar, animeIntervalSeekBar, animeImageIntervalSeekBar, cacheRemovalIntervalSeekBar;
-    private TextView intervalTextView, animeIntervalTextView, animeImageIntervalTextView, cacheRemovalIntervalTextView;
+    private TextView intervalTextView, animeIntervalTextView, animeImageIntervalTextView, cacheRemovalIntervalTextView, get_api_btn;
     private Spinner apiSourceSpinner, categorySpinner;
     private MaterialSwitch switch_nsfw;
     private String currentApiSource, currentCategory, lastWaifuPicsCategory,
             lastWaifuPicsNSFCategory, lastNekoBotCategory, lastNekoBotNSFWCategory,
             lastWaifuImCategory, lastWaifuImNSFWCategory;
+    private TextInputEditText edittext_anime_facts_api_key;
+    private MaterialButton btn_save_api_key;
     private AppUpdater appUpdater;
     public AppUpdater.UpdateReceiver updateReceiver;
     private ActivityResultLauncher<Intent> alarmPermissionLauncher;
@@ -105,7 +116,6 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
-
 
         initialize();
 
@@ -127,6 +137,9 @@ public class MainActivity extends AppCompatActivity {
         switch_nsfw = findViewById(R.id.switch_nsfw);
         cacheRemovalIntervalSeekBar = findViewById(R.id.cacheRemovalIntervalSeekBar);
         cacheRemovalIntervalTextView = findViewById(R.id.cacheRemovalIntervalTextView);
+        edittext_anime_facts_api_key = findViewById(R.id.edittext_anime_facts_api_key);
+        btn_save_api_key = findViewById(R.id.btn_save_api_key);
+        get_api_btn = findViewById(R.id.get_api_btn);
 
         mVibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
@@ -206,6 +219,51 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
 
+        if (getWaifuItAPIKey() != null) {
+            edittext_anime_facts_api_key.setText(getWaifuItAPIKey());
+        }
+
+        btn_save_api_key.setOnClickListener(view -> {
+            String apiKey = Objects.requireNonNull(edittext_anime_facts_api_key.getText()).toString();
+            if (TextUtils.isEmpty(apiKey)) {
+                Toast.makeText(MainActivity.this, "Paste an api key first!", Toast.LENGTH_SHORT).show();
+            } else if (getWaifuItAPIKey() == null || !apiKey.equals(getWaifuItAPIKey())) {
+                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                prefs.edit().putString(WAIFU_IT_API_KEY, apiKey).apply();
+                if (edittext_anime_facts_api_key.hasFocus()) {
+                    edittext_anime_facts_api_key.clearFocus();
+                    try {
+                        InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                        imm.hideSoftInputFromWindow(edittext_anime_facts_api_key.getWindowToken(), 0);
+                    } catch (Exception e) {
+                        Log.e("btn_save_api_key", e.toString());
+                    }
+                }
+                showApiAddedDialog();
+            }
+        });
+
+        get_api_btn.setOnClickListener(view -> new MaterialAlertDialogBuilder(MainActivity.this)
+                .setTitle("To get the API key follow the steps:")
+                .setMessage("1. Press Open\n2. waifu.it page will open, click dashboard\n3. Login with discord and allow the permissions\n4. Copy the generated key and paste here")
+                .setPositiveButton("Open", (dialogInterface, i) -> {
+                    String url = "https://waifu.it/";
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                })
+                .setNegativeButton("No Need", (dialog, which) -> dialog.dismiss())
+                .setCancelable(false)
+                .show());
+
+    }
+
+    private void showApiAddedDialog() {
+        new MaterialAlertDialogBuilder(MainActivity.this)
+                .setTitle("API added successfully!")
+                .setMessage("If you have added the widget already, remove and add it again.")
+                .setNegativeButton("OK", (dialog, which) -> dialog.dismiss())
+                .setCancelable(false)
+                .show();
     }
 
     private void setupCacheRemovalSeekBar() {
@@ -223,10 +281,12 @@ public class MainActivity extends AppCompatActivity {
                 vibrate(20);
                 Log.d(TAG, "onProgressChanged: progress=" + progress + ", intervalMillis=" + intervalMillis);
             }
+
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
                 Log.d(TAG, "onStartTrackingTouch");
             }
+
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
                 long intervalMillis = CACHE_INTERVALS[seekBar.getProgress()];
@@ -377,23 +437,20 @@ public class MainActivity extends AppCompatActivity {
         });
         // Store the original drawables
         Drawable originalProgressDrawable = animeImageIntervalSeekBar.getProgressDrawable();
-        animeImageIntervalSeekBar.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                switch (motionEvent.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        // User started interacting with the SeekBar
-                        animeImageIntervalSeekBar.setProgressDrawable(ContextCompat.getDrawable(MainActivity.this, R.drawable.custom_seekbar_progress));
-                        break;
-                    case MotionEvent.ACTION_UP:
-                    case MotionEvent.ACTION_CANCEL:
-                        // User stopped interacting with the SeekBar
-                        animeImageIntervalSeekBar.setProgressDrawable(originalProgressDrawable); // This will reset to the default style
-                        break;
-                }
-
-                return false;
+        animeImageIntervalSeekBar.setOnTouchListener((view, motionEvent) -> {
+            switch (motionEvent.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    // User started interacting with the SeekBar
+                    animeImageIntervalSeekBar.setProgressDrawable(ContextCompat.getDrawable(MainActivity.this, R.drawable.custom_seekbar_progress));
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    // User stopped interacting with the SeekBar
+                    animeImageIntervalSeekBar.setProgressDrawable(originalProgressDrawable); // This will reset to the default style
+                    break;
             }
+
+            return false;
         });
     }
 
@@ -423,29 +480,27 @@ public class MainActivity extends AppCompatActivity {
                 long intervalMillis = INTERVALS[seekBar.getProgress()];
                 setUpdateInterval(PREF_ANIME_FACT_UPDATE_INTERVAL, intervalMillis);
                 if (intervalMillis > 0) {
-                    //TODO:scheduleNextAnimeUpdate();
+                    scheduleNextAnimeFactUpdate();
+                    updateAnimeFactsWidgets();
                 }
             }
         });
         // Store the original drawables
         Drawable originalProgressDrawable = animeIntervalSeekBar.getProgressDrawable();
-        animeIntervalSeekBar.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                switch (motionEvent.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        // User started interacting with the SeekBar
-                        animeIntervalSeekBar.setProgressDrawable(ContextCompat.getDrawable(MainActivity.this, R.drawable.custom_seekbar_progress));
-                        break;
-                    case MotionEvent.ACTION_UP:
-                    case MotionEvent.ACTION_CANCEL:
-                        // User stopped interacting with the SeekBar
-                        animeIntervalSeekBar.setProgressDrawable(originalProgressDrawable); // This will reset to the default style
-                        break;
-                }
-
-                return false;
+        animeIntervalSeekBar.setOnTouchListener((view, motionEvent) -> {
+            switch (motionEvent.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    // User started interacting with the SeekBar
+                    animeIntervalSeekBar.setProgressDrawable(ContextCompat.getDrawable(MainActivity.this, R.drawable.custom_seekbar_progress));
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    // User stopped interacting with the SeekBar
+                    animeIntervalSeekBar.setProgressDrawable(originalProgressDrawable); // This will reset to the default style
+                    break;
             }
+
+            return false;
         });
     }
 
@@ -478,35 +533,57 @@ public class MainActivity extends AppCompatActivity {
                 setUpdateInterval(PREF_FACT_UPDATE_INTERVAL, intervalMillis);
                 if (intervalMillis > 0) {
                     scheduleNextFactUpdate();
+                    updateFactsWidgets();
                 }
             }
         });
         // Store the original drawables
         Drawable originalProgressDrawable = intervalSeekBar.getProgressDrawable();
-        intervalSeekBar.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View view, MotionEvent motionEvent) {
-                switch (motionEvent.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        // User started interacting with the SeekBar
-                        intervalSeekBar.setProgressDrawable(ContextCompat.getDrawable(MainActivity.this, R.drawable.custom_seekbar_progress));
-                        break;
-                    case MotionEvent.ACTION_UP:
-                    case MotionEvent.ACTION_CANCEL:
-                        // User stopped interacting with the SeekBar
-                        intervalSeekBar.setProgressDrawable(originalProgressDrawable); // This will reset to the default style
-                        break;
-                }
-
-                return false;
+        intervalSeekBar.setOnTouchListener((view, motionEvent) -> {
+            switch (motionEvent.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    // User started interacting with the SeekBar
+                    intervalSeekBar.setProgressDrawable(ContextCompat.getDrawable(MainActivity.this, R.drawable.custom_seekbar_progress));
+                    break;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    // User stopped interacting with the SeekBar
+                    intervalSeekBar.setProgressDrawable(originalProgressDrawable); // This will reset to the default style
+                    break;
             }
+
+            return false;
         });
+    }
+
+    private void updateFactsWidgets() {
+        Intent updateIntent = new Intent(this, FactsWidget.class);
+        updateIntent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        int[] ids = AppWidgetManager.getInstance(getApplication())
+                .getAppWidgetIds(new ComponentName(getApplication(), FactsWidget.class));
+        updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+        sendBroadcast(updateIntent);
     }
 
     private void scheduleNextFactUpdate() {
         Intent intent = new Intent(this, FactsWidget.class);
         intent.setAction(ACTION_RESET_ALARM);
         sendBroadcast(intent);
+    }
+
+    private void scheduleNextAnimeFactUpdate() {
+        Intent intent = new Intent(this, AnimeFactsWidget.class);
+        intent.setAction(ACTION_RESET_ALARM);
+        sendBroadcast(intent);
+    }
+
+    private void updateAnimeFactsWidgets() {
+        Intent updateIntent = new Intent(this, AnimeFactsWidget.class);
+        updateIntent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        int[] ids = AppWidgetManager.getInstance(getApplication())
+                .getAppWidgetIds(new ComponentName(getApplication(), AnimeFactsWidget.class));
+        updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+        sendBroadcast(updateIntent);
     }
 
     private void setUpApiSource() {
@@ -733,15 +810,18 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
+
     private boolean hasInstallPermission() {
         return getPackageManager().canRequestPackageInstalls();
     }
+
     //setters
     private void setCacheRemovalInterval(long intervalMillis) {
         Log.d(TAG, "setCacheRemovalInterval: " + intervalMillis);
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putLong(PREF_CACHE_REMOVAL_INTERVAL, intervalMillis).apply();
     }
+
     public void setUpdateInterval(String prefsName, long intervalMillis) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         Log.d(TAG, "Setting update interval to " + intervalMillis + " ms");
@@ -771,12 +851,14 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "millisToCacheProgress: millis=" + millis + ", progress=" + (CACHE_INTERVALS.length - 1));
         return CACHE_INTERVALS.length - 1;
     }
+
     private long getCacheRemovalInterval() {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         long interval = prefs.getLong(PREF_CACHE_REMOVAL_INTERVAL, DEFAULT_CACHE_REMOVAL_INTERVAL);
         Log.d(TAG, "getCacheRemovalInterval: " + interval);
         return interval;
     }
+
     private int getMillisToProgress(long millis) {
         for (int i = 0; i < INTERVALS.length; i++) {
             if (millis <= INTERVALS[i]) {
@@ -785,10 +867,12 @@ public class MainActivity extends AppCompatActivity {
         }
         return 5;
     }
+
     private long getUpdateIntervalMillis(String prefName) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getLong(prefName, DEFAULT_INTERVAL); // Default to 1hr
     }
+
     public static boolean getCanScheduleExactAlarms(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
@@ -844,6 +928,11 @@ public class MainActivity extends AppCompatActivity {
         String apiSource = prefs.getString(PREF_API_SOURCE, API_WAIFU_PICS);
         Log.d(TAG, "getApiSource: " + apiSource);
         return apiSource;
+    }
+
+    private String getWaifuItAPIKey() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(WAIFU_IT_API_KEY, null); // Default to 1hr
     }
 
     //methods

@@ -6,6 +6,9 @@ public class Constants {
     public static final String PREF_VERSION_CODE_KEY = "version_code";
     public static final int REQUEST_INSTALL_PACKAGES = 1001;
     public static final int REQUEST_NOTIFICATION_PERMISSION = 1002;
+    public static final String API_ERROR_MESSAGE = "API Error! Unable to fetch fact. Please try again later.";
+    public static final String WAIFU_IT_API_KEY_ERROR = "You have not added the API key or the API key is invalid";
+    public static final String WAIFU_IT_API_KEY = "waifu_im_api_key";
     public static final String PREF_CACHE_REMOVAL_INTERVAL = "cache_removal_interval";
     public static final String PREF_FACT_UPDATE_INTERVAL = "fact_update_interval";
     public static final String PREF_ANIME_FACT_UPDATE_INTERVAL = "anime_fact_update_interval";
@@ -20,6 +23,7 @@ public class Constants {
     public static final String ACTION_RESET_ALARM = "com.bunny.entertainment.anify.widgets.ACTION_RESET_ALARM";
     public static final String ACTION_AUTO_UPDATE = "com.bunny.entertainment.anify.widgets.ACTION_AUTO_UPDATE";
     public static final String ACTION_UPDATE_FINISHED = "com.bunny.entertainment.anify.widgets.ACTION_UPDATE_FINISHED";
+    public static final String ACTION_WAIFU_IM_API_KEY_UPDATED = "com.bunny.entertainment.anify.widgets.ACTION_API_KEY_UPDATED";
     public static final String PREF_LAST_WAIFU_PICS_CATEGORY = "last_waifu_pics_category";
     public static final String PREF_LAST_NSFW_WAIFU_PICS_CATEGORY = "last_nsfw_waifu_pics_category";
     public static final String PREF_LAST_NEKOBOT_CATEGORY = "last_nekobot_category";

@@ -25,13 +25,14 @@ public class RetrofitClient {
         return retrofit.create(ApiService.class);
     }
 
-    public static ApiService getApiServiceAnimeFacts() {
+    public static ApiService getApiServiceAnimeFacts(String waifuItAPIKey) {
         if (animeRetrofit == null) {
             OkHttpClient.Builder httpClient = new OkHttpClient.Builder();
+
             httpClient.addInterceptor(chain -> {
                 Request original = chain.request();
                 Request request = original.newBuilder()
-                        .header("Authorization", BuildConfig.WAIFU_DOT_IT_API_KEY)
+                        .header("Authorization", waifuItAPIKey) //BuildConfig.WAIFU_DOT_IT_API_KEY
                         .method(original.method(), original.body())
                         .build();
                 return chain.proceed(request);

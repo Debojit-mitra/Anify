@@ -4,10 +4,12 @@ import static com.bunny.entertainment.anify.utils.Constants.ACTION_AUTO_UPDATE;
 import static com.bunny.entertainment.anify.utils.Constants.ACTION_REFRESH;
 import static com.bunny.entertainment.anify.utils.Constants.ACTION_RESET_ALARM;
 import static com.bunny.entertainment.anify.utils.Constants.ACTION_UPDATE_FINISHED;
+import static com.bunny.entertainment.anify.utils.Constants.ACTION_WAIFU_IM_API_KEY_UPDATED;
 import static com.bunny.entertainment.anify.utils.Constants.DEFAULT_INTERVAL;
 import static com.bunny.entertainment.anify.utils.Constants.PREFS_NAME;
-import static com.bunny.entertainment.anify.utils.Constants.PREF_FACT_LAST_UPDATE_TIME;
-import static com.bunny.entertainment.anify.utils.Constants.PREF_FACT_UPDATE_INTERVAL;
+import static com.bunny.entertainment.anify.utils.Constants.PREF_ANIME_FACT_LAST_UPDATE_TIME;
+import static com.bunny.entertainment.anify.utils.Constants.PREF_ANIME_FACT_UPDATE_INTERVAL;
+import static com.bunny.entertainment.anify.utils.Constants.WAIFU_IT_API_KEY;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
@@ -25,30 +27,32 @@ import android.view.View;
 import android.widget.RemoteViews;
 
 import com.bunny.entertainment.anify.R;
-import com.bunny.entertainment.anify.adapters.FactsWidgetRemoteViewsFactory;
+import com.bunny.entertainment.anify.adapters.AnimeFactsWidgetRemoteViewsFactory;
 import com.bunny.entertainment.anify.network.NetworkMonitor;
 import com.bunny.entertainment.anify.network.NetworkUtils;
-import com.bunny.entertainment.anify.service.FactsWidgetRemoteViewsService;
+import com.bunny.entertainment.anify.service.AnimeFactsWidgetRemoteViewsService;
+import com.bunny.entertainment.anify.utils.Constants;
 
-public class FactsWidget extends AppWidgetProvider {
+public class AnimeFactsWidget extends AppWidgetProvider {
 
-    private static final String TAG = "FactsWidget";
+    private static final String TAG = "AnimeFactsWidget";
     private NetworkMonitor networkMonitor;
 
     static void updateAppWidget(Context context, AppWidgetManager appWidgetManager,
                                 int appWidgetId) {
 
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.facts_widget);
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.anime_facts_widget);
 
-        Intent serviceIntent = new Intent(context, FactsWidgetRemoteViewsService.class);
+        Intent serviceIntent = new Intent(context, AnimeFactsWidgetRemoteViewsService.class);
         serviceIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         views.setRemoteAdapter(R.id.widget_list_view, serviceIntent);
 
-        Intent refreshIntent = new Intent(context, FactsWidget.class);
-        refreshIntent.setAction(ACTION_REFRESH);
-        PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, 0, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        views.setOnClickPendingIntent(R.id.widget_refresh_container, refreshPendingIntent);
-
+        if (getWaifuItAPIKey(context) != null) {
+            Intent refreshIntent = new Intent(context, AnimeFactsWidget.class);
+            refreshIntent.setAction(ACTION_REFRESH);
+            PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(context, 0, refreshIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            views.setOnClickPendingIntent(R.id.widget_refresh_container, refreshPendingIntent);
+        }
         appWidgetManager.updateAppWidget(appWidgetId, views);
     }
 
@@ -71,7 +75,7 @@ public class FactsWidget extends AppWidgetProvider {
         }
 
         if (ACTION_REFRESH.equals(action) || ACTION_AUTO_UPDATE.equals(action)) {
-            Log.e("PREF_FACT_UPDATE_INTERVAL", PREF_FACT_UPDATE_INTERVAL);
+            Log.e("PREF_ANIME_FACT_UPDATE_INTERVAL", PREF_ANIME_FACT_UPDATE_INTERVAL);
             if (NetworkUtils.isNetworkAvailable(context)) {
                 showProgressBar(context);
                 new Handler(Looper.getMainLooper()).postDelayed(() -> performUpdate(context), 250);
@@ -98,13 +102,13 @@ public class FactsWidget extends AppWidgetProvider {
         if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) { //ensures that if app is updated it reloads views
             Log.d(TAG, "App updated, refreshing widgets");
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-            ComponentName thisWidget = new ComponentName(context, FactsWidget.class);
+            ComponentName thisWidget = new ComponentName(context, AnimeFactsWidget.class);
             int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
             onUpdate(context, appWidgetManager, appWidgetIds);
         }
         if (AppWidgetManager.ACTION_APPWIDGET_UPDATE.equals(action)) {
             AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-            ComponentName thisWidget = new ComponentName(context, FactsWidget.class);
+            ComponentName thisWidget = new ComponentName(context, AnimeFactsWidget.class);
             int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
 
             // Force data refresh in RemoteViewsFactory
@@ -116,27 +120,30 @@ public class FactsWidget extends AppWidgetProvider {
             }
         }
 
+        if (ACTION_WAIFU_IM_API_KEY_UPDATED.equals(action)) {
+            onEnabled(context);
+        }
     }
 
     private void performUpdate(Context context) {
         Log.d(TAG, "Performing update");
-        FactsWidgetRemoteViewsFactory.setRefreshFlag();
+        AnimeFactsWidgetRemoteViewsFactory.setRefreshFlag();
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-        ComponentName thisWidget = new ComponentName(context, FactsWidget.class);
+        ComponentName thisWidget = new ComponentName(context, AnimeFactsWidget.class);
         int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget);
         appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list_view);
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         long updateTime = System.currentTimeMillis();
-        prefs.edit().putLong(PREF_FACT_LAST_UPDATE_TIME, updateTime).apply();
+        prefs.edit().putLong(PREF_ANIME_FACT_UPDATE_INTERVAL, updateTime).apply();
         //  Log.d(TAG, "Last update time saved: " + updateTime);
         // Update the widget layout
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.facts_widget);
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.anime_facts_widget);
         appWidgetManager.updateAppWidget(thisWidget, views);
 
         scheduleAutoUpdate(context);
 
-        Intent finishedIntent = new Intent(context, FactsWidget.class);
+        Intent finishedIntent = new Intent(context, AnimeFactsWidget.class);
         finishedIntent.setAction(ACTION_UPDATE_FINISHED);
         context.sendBroadcast(finishedIntent);
 
@@ -160,7 +167,7 @@ public class FactsWidget extends AppWidgetProvider {
         //Log.d(TAG, "Next update scheduled in " + nextUpdateDelay + " ms");
 
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(context, FactsWidget.class);
+        Intent intent = new Intent(context, AnimeFactsWidget.class);
         intent.setAction(ACTION_AUTO_UPDATE);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
@@ -184,7 +191,7 @@ public class FactsWidget extends AppWidgetProvider {
     private void cancelAlarmAndClear(Context context) {
         // Cancel any pending alarms
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        Intent intent = new Intent(context, FactsWidget.class);
+        Intent intent = new Intent(context, AnimeFactsWidget.class);
         intent.setAction(ACTION_AUTO_UPDATE);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, intent,
                 PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
@@ -207,18 +214,22 @@ public class FactsWidget extends AppWidgetProvider {
     public void onEnabled(Context context) {
         Log.d(TAG, "onEnabled called");
         // Perform an initial update to load data immediately
-        scheduleAutoUpdate(context);
+        if (getWaifuItAPIKey(context) != null) {
+            scheduleAutoUpdate(context);
+        }
     }
 
     @Override
     public void onDisabled(Context context) {
         Log.d(TAG, "onDisabled called - last widget instance removed");
-        cancelAlarmAndClear(context);
+        if (getWaifuItAPIKey(context) != null) {
+            cancelAlarmAndClear(context);
+        }
     }
 
     private void showProgressBar(Context context) {
         Log.d(TAG, "Showing progress bar");
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.facts_widget);
+        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.anime_facts_widget);
         views.setViewVisibility(R.id.widget_refresh_button, View.GONE);
         views.setViewVisibility(R.id.widget_refresh_progress, View.VISIBLE);
         updateWidgetViews(context, views);
@@ -227,7 +238,7 @@ public class FactsWidget extends AppWidgetProvider {
     private void hideProgressBar(Context context) {
         Log.d(TAG, "Hiding progress bar");
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.facts_widget);
+            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.anime_facts_widget);
             views.setViewVisibility(R.id.widget_refresh_button, View.VISIBLE);
             views.setViewVisibility(R.id.widget_refresh_progress, View.GONE);
             updateWidgetViews(context, views);
@@ -237,21 +248,25 @@ public class FactsWidget extends AppWidgetProvider {
     private void updateWidgetViews(Context context, RemoteViews views) {
         Log.d(TAG, "Updating widget views");
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
-        ComponentName thisWidget = new ComponentName(context, FactsWidget.class);
+        ComponentName thisWidget = new ComponentName(context, AnimeFactsWidget.class);
         appWidgetManager.updateAppWidget(thisWidget, views);
     }
 
     //getter
     private long getUpdateIntervalMillis(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getLong(com.bunny.entertainment.anify.utils.Constants.PREF_FACT_UPDATE_INTERVAL, DEFAULT_INTERVAL); // Default to 1hr
+        return prefs.getLong(Constants.PREF_ANIME_FACT_UPDATE_INTERVAL, DEFAULT_INTERVAL); // Default to 1hr
     }
 
     private long getLastUpdateTime(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        long lastUpdateTime = prefs.getLong(PREF_FACT_LAST_UPDATE_TIME, 0);
+        long lastUpdateTime = prefs.getLong(PREF_ANIME_FACT_LAST_UPDATE_TIME, 0);
         Log.d(TAG, "Retrieved last update time: " + lastUpdateTime);
         return lastUpdateTime;
     }
 
+    private static String getWaifuItAPIKey(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(WAIFU_IT_API_KEY, null); // Default to 1hr
+    }
 }

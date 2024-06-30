@@ -1,31 +1,30 @@
 package com.bunny.entertainment.anify.adapters;
 
-import static com.bunny.entertainment.anify.utils.Constants.ACTION_AUTO_UPDATE;
-import static com.bunny.entertainment.anify.utils.Constants.ACTION_UPDATE_FINISHED;
 import static com.bunny.entertainment.anify.utils.Constants.API_ERROR_MESSAGE;
 import static com.bunny.entertainment.anify.utils.Constants.DEFAULT_INTERVAL;
 import static com.bunny.entertainment.anify.utils.Constants.PREFS_NAME;
-import static com.bunny.entertainment.anify.utils.Constants.PREF_FACT_LAST_UPDATE_TIME;
-import static com.bunny.entertainment.anify.utils.Constants.PREF_FACT_UPDATE_INTERVAL;
-import static com.bunny.entertainment.anify.utils.Constants.PREF_LAST_FACT;
+import static com.bunny.entertainment.anify.utils.Constants.PREF_ANIME_FACT_LAST_UPDATE_TIME;
+import static com.bunny.entertainment.anify.utils.Constants.PREF_ANIME_FACT_UPDATE_INTERVAL;
+import static com.bunny.entertainment.anify.utils.Constants.PREF_LAST_ANIME_FACT;
+import static com.bunny.entertainment.anify.utils.Constants.WAIFU_IT_API_KEY;
+import static com.bunny.entertainment.anify.utils.Constants.WAIFU_IT_API_KEY_ERROR;
 
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.widget.RemoteViews;
 import android.widget.RemoteViewsService;
 import android.widget.Toast;
 
 import com.bunny.entertainment.anify.R;
-import com.bunny.entertainment.anify.models.FactResponse;
+import com.bunny.entertainment.anify.models.AnimeFactResponse;
 import com.bunny.entertainment.anify.network.ApiService;
 import com.bunny.entertainment.anify.network.NetworkMonitor;
 import com.bunny.entertainment.anify.network.NetworkUtils;
 import com.bunny.entertainment.anify.network.RetrofitClient;
-import com.bunny.entertainment.anify.widgets.FactsWidget;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -35,26 +34,26 @@ import java.util.Locale;
 
 import retrofit2.Response;
 
-public class FactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory {
+public class AnimeFactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteViewsFactory {
 
-    private static final String TAG = "FactsWidgetRemoteViewsFactory";
+    private static final String TAG = "AnimeFactsWidgetRemoteViewsFactory";
     private final Context context;
-    private final List<String> facts;
+    private final List<String> animeFacts;
     private static boolean shouldRefresh = false;
 
-    public FactsWidgetRemoteViewsFactory(Context context) {
+    public AnimeFactsWidgetRemoteViewsFactory(Context context) {
         this.context = context;
-        this.facts = new ArrayList<>();
+        animeFacts = new ArrayList<>();
     }
 
     @Override
     public void onCreate() {
-        String lastFact = getLastShownFact();
-        if (!lastFact.isEmpty()) {
-            facts.add(lastFact);
-            Log.d(TAG, "Last shown fact added: " + lastFact);
+        String lastAnimeFact = getLastShownAnimeFact();
+        if (!lastAnimeFact.isEmpty()) {
+            animeFacts.add(lastAnimeFact);
+            Log.d(TAG, "Last shown Anime fact added: " + lastAnimeFact);
         } else {
-            Log.d(TAG, "No last shown fact found");
+            Log.d(TAG, "No last shown Anime fact found");
         }
     }
 
@@ -67,13 +66,13 @@ public class FactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteV
 
         if (updateInterval == 0) {
             Log.d(TAG, "Update interval is 0 (Off state)");
-            String lastFact = getLastShownFact();
+            String lastFact = getLastShownAnimeFact();
             if (!lastFact.isEmpty()) {
-                facts.clear();
-                facts.add(lastFact);
-                Log.d(TAG, "Added last shown fact in Off state: " + lastFact);
-            } else if (facts.isEmpty()) {
-                Log.d(TAG, "No last fact and list is empty. Fetching new fact.");
+                animeFacts.clear();
+                animeFacts.add(lastFact);
+                Log.d(TAG, "Added last shown anime fact in Off state: " + lastFact);
+            } else if (animeFacts.isEmpty()) {
+                Log.d(TAG, "No last anime fact and list is empty. Fetching new fact.");
                 fetchFacts();
                 setLastUpdateTime(currentTime);
             }
@@ -82,15 +81,15 @@ public class FactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteV
             long elapsedTime = currentTime - lastUpdateTime;
             Log.d(TAG, "Last update time: " + lastUpdateTime + ", Current time: " + currentTime + ", Elapsed time: " + elapsedTime);
 
-            if (facts.isEmpty() || shouldRefresh || elapsedTime >= updateInterval) {
+            if (animeFacts.isEmpty() || shouldRefresh || elapsedTime >= updateInterval) {
                 if (NetworkUtils.isNetworkAvailable(context)) {
-                    Log.d(TAG, "Fetching new facts");
+                    Log.d(TAG, "Fetching new anime facts");
                     fetchFacts();
                     setLastUpdateTime(currentTime);
                 } else {
                     NetworkMonitor networkMonitor = NetworkMonitor.getInstance(context);
                     networkMonitor.startMonitoring(() -> {
-                        Log.d(TAG, "Fetching new facts");
+                        Log.d(TAG, "Fetching new anime facts");
                         fetchFacts();
                         setLastUpdateTime(currentTime);
                         networkMonitor.stopMonitoring();
@@ -98,35 +97,39 @@ public class FactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteV
                 }
                 shouldRefresh = false;
             } else {
-                Log.d(TAG, "No need to update facts yet");
+                Log.d(TAG, "No need to update anime facts yet");
             }
         }
     }
 
-    @Override
     public void onDestroy() {
-        facts.clear();
+        animeFacts.clear();
     }
 
     @Override
     public int getCount() {
-        return facts.size() + 1;
+        return animeFacts.size() + 1;
     }
 
     @Override
     public RemoteViews getViewAt(int position) {
-        if (position == facts.size()) {
+        if (position == animeFacts.size()) {
             // This is the "Next update" item
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.list_item_next_update);
-            long updateInterval = getUpdateIntervalMillis();
-            long nextUpdateTime = System.currentTimeMillis() + updateInterval;
-            String formattedTime = formatTime(nextUpdateTime);
-            views.setTextViewText(R.id.next_update_time, formattedTime);
+            if (getWaifuItAPIKey() != null) {
+                long updateInterval = getUpdateIntervalMillis();
+                long nextUpdateTime = System.currentTimeMillis() + updateInterval;
+                String formattedTime = formatTime(nextUpdateTime);
+                views.setTextViewText(R.id.next_update_time, formattedTime);
+            } else {
+                // Hide or remove the next update time view
+                views.setViewVisibility(R.id.next_update_time, View.GONE);
+            }
             return views;
-        }  else {
+        } else {
             // This is a fact item
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.list_item_fact);
-            views.setTextViewText(R.id.fact_text, facts.get(position));
+            views.setTextViewText(R.id.fact_text, animeFacts.get(position));
             return views;
         }
     }
@@ -140,6 +143,7 @@ public class FactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteV
     public int getViewTypeCount() {
         return 2;
     }
+
     @Override
     public long getItemId(int position) {
         return position;
@@ -151,39 +155,45 @@ public class FactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteV
     }
 
     private void fetchFacts() {
-        ApiService apiService = RetrofitClient.getApiServiceFacts();
-        try {
-            facts.clear();
-            Log.d(TAG, "Cleared existing facts");
-            Response<FactResponse> response = apiService.getRandomFact().execute();
-            if (response.isSuccessful() && response.body() != null) {
-                String fact = response.body().getText();
-                facts.add(fact);
-                setLastShownFact(fact);
-                Log.d(TAG, "Fetched and saved new fact: " + fact);
-            } else {
-                Log.w(TAG, "Unsuccessful API response or null body");
-                handleError();
+        if (getWaifuItAPIKey() != null){
+            ApiService apiService = RetrofitClient.getApiServiceAnimeFacts(getWaifuItAPIKey());
+            try {
+                animeFacts.clear();
+                Log.d(TAG, "Cleared existing anime facts");
+                Response<AnimeFactResponse> response = apiService.getAnimeFact().execute();
+                if (response.isSuccessful() && response.body() != null) {
+                    String fact = response.body().getFact();
+                    animeFacts.add(fact);
+                    setLastShownAnimeFact(fact);
+                    getViewAt(animeFacts.size());
+                    Log.d(TAG, "Fetched and saved new anime fact: " + fact);
+                } else {
+                    Log.w(TAG, "Unsuccessful API response or null body");
+                    handleError();
+                }
+                Log.d(TAG, "Total anime facts after fetch: " + animeFacts.size());
+            } catch (Exception e) {
+                Log.e(TAG, "Error fetching facts", e);
+                String lastFact = getLastShownAnimeFact();
+                if (!lastFact.isEmpty()) {
+                    animeFacts.add(lastFact);
+                    Log.d(TAG, "Added last known anime fact due to error: " + lastFact);
+                }
             }
-            Log.d(TAG, "Total facts after fetch: " + facts.size());
-        } catch (Exception e) {
-            Log.e(TAG, "Error fetching facts", e);
-            String lastFact = getLastShownFact();
-            if (!lastFact.isEmpty()) {
-                facts.add(lastFact);
-                Log.d(TAG, "Added last known fact due to error: " + lastFact);
-            }
+        } else {
+            animeFacts.add(WAIFU_IT_API_KEY_ERROR);
         }
+
     }
 
     private void handleError() {
-        String lastFact = getLastShownFact();
+        String lastFact = getLastShownAnimeFact();
         if (!lastFact.isEmpty()) {
-            facts.add(lastFact);
+            animeFacts.add(lastFact);
             Log.d(TAG, "Added last known fact due to error: " + lastFact);
             new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(context, "API Error! Showing last fact.", Toast.LENGTH_SHORT).show());
         } else {
-            facts.add(API_ERROR_MESSAGE);
+            animeFacts.add(API_ERROR_MESSAGE);
             Log.d(TAG, "Added error message to facts list");
         }
         //setLastShownFact(facts.get(0)); // Save the displayed message (last fact or error)
@@ -201,7 +211,7 @@ public class FactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteV
 
     private long getUpdateIntervalMillis() {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        long interval = prefs.getLong(PREF_FACT_UPDATE_INTERVAL, DEFAULT_INTERVAL);
+        long interval = prefs.getLong(PREF_ANIME_FACT_UPDATE_INTERVAL, DEFAULT_INTERVAL);
         Log.d(TAG, "Retrieved update interval: " + interval + " ms");
         return interval;
     }
@@ -209,28 +219,32 @@ public class FactsWidgetRemoteViewsFactory implements RemoteViewsService.RemoteV
     private void setLastUpdateTime(long time) {
         Log.d(TAG, "Saving last update time: " + time);
         SharedPreferences.Editor editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
-        editor.putLong(PREF_FACT_LAST_UPDATE_TIME, time);
+        editor.putLong(PREF_ANIME_FACT_LAST_UPDATE_TIME, time);
         editor.apply();
     }
 
     private long getLastUpdateTime() {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        long lastUpdateTime = prefs.getLong(PREF_FACT_LAST_UPDATE_TIME, 0);
+        long lastUpdateTime = prefs.getLong(PREF_ANIME_FACT_LAST_UPDATE_TIME, 0);
         Log.d(TAG, "Retrieved last update time: " + lastUpdateTime);
         return lastUpdateTime;
     }
 
-    private void setLastShownFact(String fact) {
+    private void setLastShownAnimeFact(String fact) {
         Log.d(TAG, "Saving last shown fact: " + fact);
         SharedPreferences.Editor editor = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit();
-        editor.putString(PREF_LAST_FACT, fact);
+        editor.putString(PREF_LAST_ANIME_FACT, fact);
         editor.apply();
     }
 
-    private String getLastShownFact() {
+    private String getLastShownAnimeFact() {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String lastFact = prefs.getString(PREF_LAST_FACT, "");
+        String lastFact = prefs.getString(PREF_LAST_ANIME_FACT, "");
         Log.d(TAG, "Retrieved last shown fact: " + (lastFact.isEmpty() ? "None" : lastFact));
         return lastFact;
+    }
+    private String getWaifuItAPIKey() {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString(WAIFU_IT_API_KEY, null); // Default to 1hr
     }
 }
