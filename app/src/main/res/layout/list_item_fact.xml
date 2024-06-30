@@ -3,7 +3,7 @@
     android:id="@+id/fact_text"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:textColor="@color/mode_inverse_extra"
+    android:textColor="@color/mode_inverse"
     android:textStyle="bold"
     android:padding="8dp"
     />

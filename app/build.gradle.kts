@@ -1,10 +1,5 @@
 import java.util.Properties
 
-
-plugins {
-    alias(libs.plugins.androidApplication)
-}
-
 val localProperties = Properties().apply {
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
@@ -12,16 +7,20 @@ val localProperties = Properties().apply {
     }
 }
 
+plugins {
+    alias(libs.plugins.androidApplication)
+}
+
 android {
-    namespace = "com.bunny.entertainment.factoid"
+    namespace = "com.bunny.entertainment.anify"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.bunny.entertainment.factoid"
+        applicationId = "com.bunny.entertainment.anify"
         minSdk = 30
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0.4"
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -35,7 +34,6 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             buildFeatures {
@@ -43,10 +41,9 @@ android {
             }
             applicationIdSuffix = ".debug"
             isDebuggable = true
-            resValue("string", "app_name", "Anidot Debug")
+            resValue("string", "app_name", "Anify Debug")
         }
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -66,6 +63,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+
 
 
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

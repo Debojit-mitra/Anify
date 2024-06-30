@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Anidot"
+rootProject.name = "Anify"
 include(":app")
  
