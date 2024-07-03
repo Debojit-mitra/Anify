@@ -12,15 +12,15 @@ plugins {
 }
 
 android {
-    namespace = "com.bunny.entertainment.anify"
+    namespace = "com.bunny.entertainment.factoid"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.bunny.entertainment.anify"
+        applicationId = "com.bunny.entertainment.factoid"
         minSdk = 30
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0.1"
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

@@ -8,4 +8,5 @@
     <color name="mode_inverse">#FFFFFF</color>
     <color name="mode_extra">#000000</color>
     <color name="mode_transparent">#12FFFFFF</color>
+    <color name="mode_transparent_2">#80000000</color>
 </resources>

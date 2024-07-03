@@ -20,7 +20,7 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
--keepclassmembers class com.bunny.entertainment.anify.models.** {
+-keepclassmembers class com.bunny.entertainment.factoid.models.** {
     *;
 }
 # Glide

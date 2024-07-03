@@ -1,0 +1,106 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/rounded_shape"
+    >
+
+    <ImageView
+        android:id="@+id/widget_image_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:contentDescription="@string/wallpaper" />
+
+    <RelativeLayout
+        android:id="@+id/widget_refresh_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="7dp"
+        android:elevation="5dp"
+        android:layout_gravity="bottom|end">
+
+        <LinearLayout
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:background="@drawable/rounded_shape"
+            android:backgroundTint="@color/mode_extra"
+            android:alpha="0.7"
+            android:elevation="2dp"
+            android:layout_margin="5dp"
+            />
+
+        <ImageView
+            android:id="@+id/widget_refresh_button"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:src="@drawable/ic_reload"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/update_fact"
+            android:tint="@color/mode_inverse"
+            android:padding="2dp"
+            android:elevation="3dp"
+            android:hapticFeedbackEnabled="true"
+            android:layout_centerInParent="true"
+            tools:ignore="UseAppTint" />
+
+        <ProgressBar
+            android:id="@+id/widget_refresh_progress"
+            android:layout_width="15dp"
+            android:layout_height="15dp"
+            android:layout_centerInParent="true"
+            android:elevation="5dp"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/mode_inverse"
+            android:visibility="gone" />
+
+    </RelativeLayout>
+
+    <RelativeLayout
+        android:id="@+id/widget_download_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_margin="7dp"
+        android:elevation="5dp"
+        android:layout_gravity="bottom|start">
+
+        <LinearLayout
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:background="@drawable/rounded_shape"
+            android:backgroundTint="@color/mode_extra"
+            android:alpha="0.7"
+            android:elevation="2dp"
+            android:layout_margin="5dp"
+            />
+
+        <ImageView
+            android:id="@+id/widget_download_button"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:src="@drawable/ic_download"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/download_image"
+            android:tint="@color/mode_inverse"
+            android:padding="3dp"
+            android:elevation="3dp"
+            android:hapticFeedbackEnabled="true"
+            android:layout_centerInParent="true"
+            tools:ignore="UseAppTint" />
+
+    </RelativeLayout>
+
+    <ImageView
+        android:id="@+id/background_img"
+        android:layout_width="150dp"
+        android:layout_height="200dp"
+        android:src="@drawable/anime_background"
+        android:background="@android:color/transparent"
+        android:contentDescription="@string/background_image"
+        android:hapticFeedbackEnabled="true"
+        android:elevation="-1dp"
+        android:alpha="0.7"
+        android:layout_gravity="center"
+        tools:ignore="UseAppTint" />
+
+</FrameLayout>

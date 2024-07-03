@@ -20,4 +20,6 @@
     <string name="enter_api_key">Enter API Key</string>
     <string name="save">Save</string>
     <string name="get_api_key">(Get API Key)</string>
+    <string name="wallpaper">wallpaper</string>
+    <string name="download_image">Download Image</string>
 </resources>
