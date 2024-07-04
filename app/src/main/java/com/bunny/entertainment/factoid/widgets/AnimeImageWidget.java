@@ -90,7 +90,12 @@ public class AnimeImageWidget extends AppWidgetProvider {
                 updateAppWidget(context, appWidgetManager, appWidgetId);
             }
             refreshWidgetViews(context);
-            scheduleAutoUpdate(context);
+            if (isUpdateNeeded(context)){
+                showDownloadProgressBar(context);
+                performUpdate(context);
+            } else {
+                scheduleAutoUpdate(context);
+            }
         }
     }
 
