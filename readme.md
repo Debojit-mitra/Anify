@@ -25,6 +25,11 @@ Anify is an Android app that transforms your home screen into a dynamic portal o
 ![Latest Release](https://img.shields.io/github/v/release/Debojit-mitra/Anify?social)
 [![Go to Latest Release](https://img.shields.io/badge/Go%20to%20Latest%20Release-red)](https://github.com/Debojit-mitra/Anify/releases/latest)
 
+## 🎯Issue:
+   - 🔍Problem
+      - Some phones, when in low power mode or battery saving mode, disable the foreground task.
+      - Sometimes misses scheduled alarm on some devices.
+
 ## 🛠️Technologies Used
 
 - Java
