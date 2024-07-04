@@ -1,6 +1,6 @@
 package com.bunny.entertainment.factoid.utils;
 
-import static android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE;
+import static com.bunny.entertainment.factoid.utils.Constants.ACTION_DOWNLOAD_COMPLETE;
 import static com.bunny.entertainment.factoid.utils.Constants.ACTION_DOWNLOAD_FAILED;
 
 import android.app.DownloadManager;

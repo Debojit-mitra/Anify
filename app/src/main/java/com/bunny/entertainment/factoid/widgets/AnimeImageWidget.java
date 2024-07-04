@@ -1,8 +1,8 @@
 package com.bunny.entertainment.factoid.widgets;
 
-import static android.app.DownloadManager.ACTION_DOWNLOAD_COMPLETE;
 import static com.bunny.entertainment.factoid.utils.Constants.ACTION_AUTO_UPDATE;
 import static com.bunny.entertainment.factoid.utils.Constants.ACTION_DOWNLOAD;
+import static com.bunny.entertainment.factoid.utils.Constants.ACTION_DOWNLOAD_COMPLETE;
 import static com.bunny.entertainment.factoid.utils.Constants.ACTION_DOWNLOAD_FAILED;
 import static com.bunny.entertainment.factoid.utils.Constants.ACTION_HOMESCREEN_FROM_APP;
 import static com.bunny.entertainment.factoid.utils.Constants.ACTION_HOME_SCREEN_BECAME_VISIBLE;
@@ -130,12 +130,16 @@ public class AnimeImageWidget extends AppWidgetProvider {
     private void registerReceivers(Context context) {
         if (!isHomeScreenDetectorRegistered) {
             IntentFilter filter = new IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.getApplicationContext().registerReceiver(new HomeScreenDetector(), filter, Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                context.getApplicationContext().registerReceiver(new HomeScreenDetector(), filter);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.getApplicationContext().registerReceiver(new HomeScreenDetector(), filter, Context.RECEIVER_NOT_EXPORTED);
+                } else {
+                    context.getApplicationContext().registerReceiver(new HomeScreenDetector(), filter);
+                }
+                isHomeScreenDetectorRegistered = true;
+            } catch (Exception e){
+                Log.e(TAG, e.toString());
             }
-            isHomeScreenDetectorRegistered = true;
         }
 
         if (!isAnimeImageWidgetRegistered) {
@@ -144,12 +148,16 @@ public class AnimeImageWidget extends AppWidgetProvider {
             filter.addAction(Intent.ACTION_CONFIGURATION_CHANGED);
             filter.addAction(Intent.ACTION_MY_PACKAGE_REPLACED);
             filter.addAction(Intent.ACTION_BOOT_COMPLETED);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.getApplicationContext().registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                context.getApplicationContext().registerReceiver(this, filter);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.getApplicationContext().registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED);
+                } else {
+                    context.getApplicationContext().registerReceiver(this, filter);
+                }
+                isAnimeImageWidgetRegistered = true;
+            } catch (Exception e){
+                Log.e(TAG, e.toString());
             }
-            isAnimeImageWidgetRegistered = true;
         }
     }
 
@@ -310,10 +318,14 @@ public class AnimeImageWidget extends AppWidgetProvider {
             IntentFilter filter = new IntentFilter();
             filter.addAction(ACTION_DOWNLOAD_COMPLETE);
             filter.addAction(ACTION_DOWNLOAD_FAILED);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED);
-            } else {
-                context.registerReceiver(this, filter);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    context.getApplicationContext().registerReceiver(this, filter, Context.RECEIVER_NOT_EXPORTED);
+                } else {
+                    context.getApplicationContext().registerReceiver(this, filter);
+                }
+            } catch (Exception e){
+                Log.e(TAG, e.toString());
             }
         } else {
             if (Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) { //ensures that if app is updated it reloads views
@@ -613,7 +625,6 @@ public class AnimeImageWidget extends AppWidgetProvider {
                 Log.e(TAG, "loadImage: " + e);
                 int[] appWidgetIds = new int[]{appWidgetId};
                 handleApiFailure(context, appWidgetManager, appWidgetIds, "Failed to fetch image: " + e.getMessage());
-                //TODO: fetchAndUpdateImage or loadImageWithRetry
             }
         }).start();
 
@@ -654,7 +665,6 @@ public class AnimeImageWidget extends AppWidgetProvider {
         context.sendBroadcast(finishedIntent);
     }
 
-    //TODO: if img url null add some toast or something
     private void setupWidgetButtons(Context context, RemoteViews views, String imageUrl) {
         Log.d(TAG, "Setting up widget buttons. Image URL: " + (imageUrl != null ? imageUrl : "null"));
         // Set up refresh button

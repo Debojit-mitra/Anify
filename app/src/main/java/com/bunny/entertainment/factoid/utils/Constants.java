@@ -29,6 +29,7 @@ public class Constants {
     public static final String ACTION_HOME_SCREEN_BECAME_VISIBLE = "com.bunny.entertainment.anify.ACTION_HOME_SCREEN_BECAME_VISIBLE";
     public static final String ACTION_UPDATE_FINISHED = "com.bunny.entertainment.anify.widgets.ACTION_UPDATE_FINISHED";
     public static final String ACTION_DOWNLOAD = "com.bunny.entertainment.anify.widgets.ANIME_IMAGE_ACTION_DOWNLOAD";
+    public static final String ACTION_DOWNLOAD_COMPLETE = "com.bunny.entertainment.anify.widgets.ACTION_DOWNLOAD_COMPLETE";
     public static final String ACTION_DOWNLOAD_FAILED = "com.bunny.entertainment.anify.widgets.ACTION_DOWNLOAD_FAILED";
     public static final String ACTION_WAIFU_IM_API_KEY_UPDATED = "com.bunny.entertainment.anify.widgets.ACTION_API_KEY_UPDATED";
     public static final String PREF_LAST_WAIFU_PICS_CATEGORY = "last_waifu_pics_category";
